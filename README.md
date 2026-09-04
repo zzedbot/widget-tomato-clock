@@ -28,4 +28,34 @@ HTML 文件可以直接在浏览器中打开。页面使用 Tailwind CDN 与 Ico
 - 待开始、专注、暂停、短休息、长休息和完成状态
 - 专注/休息时长、自动化、声音、置顶与开机启动设置
 
-当前仓库保存的是设计原型，尚未包含 Windows 应用实现。
+仓库已进入 Windows MVP 实现阶段，设计稿继续作为界面与验收参考。
+
+## Windows 原型
+
+原型采用 Electron、React、TypeScript 和 Vite 实现，当前包括：
+
+- 基于目标结束时间的番茄钟状态机；
+- 开始、暂停、继续、重置与跳过；
+- 专注、短休息、长休息及完成状态；
+- 当前任务与今日完成数量；
+- 主挂件、专注迷你模式和设置面板；
+- 无边框窗口、拖拽、始终置顶和隐藏到托盘；
+- 系统托盘快捷操作、Windows 通知与开机启动设置；
+- 本地状态保存、跨日期归零及休眠后的时间恢复。
+
+### 本地开发
+
+```bash
+npm install
+npm run dev
+```
+
+### 验证与构建
+
+```bash
+npm test
+npm run build
+npm run pack
+```
+
+`npm run pack` 会生成可直接运行的 `release/win-unpacked/番茄伴侣.exe`。`npm run dist` 用于生成单文件便携包，并可能在首次执行时下载额外的 Electron Builder 资源。
