@@ -7,6 +7,13 @@ contextBridge.exposeInMainWorld("tomatoDesktop", {
   showNotification: (payload) => ipcRenderer.invoke("notification:show", payload),
   updateTray: (payload) => ipcRenderer.send("tray:update", payload),
   hideWindow: () => ipcRenderer.invoke("window:hide"),
+  expandEdge: () => ipcRenderer.invoke("window:expand-edge"),
+  collapseEdge: () => ipcRenderer.invoke("window:collapse-edge"),
+  onDockState: (callback) => {
+    const handler = (_event, state) => callback(state);
+    ipcRenderer.on("window:dock-state", handler);
+    return () => ipcRenderer.removeListener("window:dock-state", handler);
+  },
   onTrayAction: (callback) => {
     const handler = (_event, action) => callback(action);
     ipcRenderer.on("tray:action", handler);

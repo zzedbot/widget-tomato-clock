@@ -1,17 +1,23 @@
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, Tray } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const { collapsedBounds, expandedBounds, findDockEdge } = require("./docking.cjs");
 
 const VIEW_SIZES = {
   main: { width: 392, height: 270 },
   mini: { width: 300, height: 86 },
-  settings: { width: 430, height: 650 }
+  settings: { width: 430, height: 650 },
+  edge: { width: 62, height: 62 }
 };
 
 let mainWindow;
 let tray;
 let quitting = false;
 let trayState = { label: "待开始", remaining: "25:00", running: false, paused: false };
+let dockedEdge = null;
+let expandedEdgeBounds = null;
+let adjustingBounds = false;
+let collapseTimer = null;
 
 function statePath() {
   return path.join(app.getPath("userData"), "window-state.json");
@@ -28,7 +34,52 @@ function readWindowState() {
 function writeWindowState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const current = readWindowState();
-  fs.writeFileSync(statePath(), JSON.stringify({ ...current, bounds: mainWindow.getBounds() }));
+  const bounds = dockedEdge && expandedEdgeBounds ? expandedEdgeBounds : mainWindow.getBounds();
+  fs.writeFileSync(statePath(), JSON.stringify({ ...current, bounds, dockedEdge }));
+}
+
+function setBoundsSafely(bounds, animate = true) {
+  if (!mainWindow) return;
+  adjustingBounds = true;
+  mainWindow.setBounds(bounds, animate);
+  setTimeout(() => { adjustingBounds = false; }, 180);
+}
+
+function collapseToEdge(edge = dockedEdge, sourceBounds) {
+  if (!mainWindow || !edge) return;
+  clearTimeout(collapseTimer);
+  const current = sourceBounds || mainWindow.getBounds();
+  const display = screen.getDisplayMatching(current);
+  if (!dockedEdge) expandedEdgeBounds = current;
+  dockedEdge = edge;
+  setBoundsSafely(collapsedBounds(edge, current, display.workArea, VIEW_SIZES.edge.width));
+  mainWindow.webContents.send("window:dock-state", { docked: true, collapsed: true });
+  writeWindowState();
+}
+
+function expandFromEdge() {
+  if (!mainWindow || !dockedEdge) return;
+  clearTimeout(collapseTimer);
+  const current = mainWindow.getBounds();
+  const display = screen.getDisplayMatching(current);
+  expandedEdgeBounds = expandedBounds(dockedEdge, current, display.workArea, VIEW_SIZES.main);
+  setBoundsSafely(expandedEdgeBounds);
+  mainWindow.webContents.send("window:dock-state", { docked: true, collapsed: false });
+}
+
+function checkEdgeDock() {
+  if (!mainWindow || adjustingBounds) return;
+  const bounds = mainWindow.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  const edge = findDockEdge(bounds, display.workArea);
+  if (edge) {
+    collapseToEdge(edge, bounds);
+  } else if (dockedEdge) {
+    dockedEdge = null;
+    expandedEdgeBounds = null;
+    mainWindow.webContents.send("window:dock-state", { docked: false, collapsed: false });
+    writeWindowState();
+  }
 }
 
 function visibleBounds(saved) {
@@ -79,6 +130,8 @@ function createTray() {
 
 function createWindow() {
   const saved = readWindowState();
+  dockedEdge = saved.dockedEdge || null;
+  expandedEdgeBounds = saved.bounds || null;
   mainWindow = new BrowserWindow({
     ...VIEW_SIZES.main,
     ...visibleBounds(saved.bounds),
@@ -102,14 +155,20 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
-  mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.webContents.once("did-finish-load", () => {
+    if (dockedEdge) collapseToEdge(dockedEdge, saved.bounds);
+    mainWindow.show();
+  });
   mainWindow.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
       mainWindow.hide();
     }
   });
-  mainWindow.on("moved", writeWindowState);
+  mainWindow.on("moved", () => {
+    if (!adjustingBounds) checkEdgeDock();
+    writeWindowState();
+  });
 }
 
 app.setName("番茄伴侣");
@@ -138,9 +197,22 @@ app.on("before-quit", () => {
 ipcMain.handle("window:set-view", (_event, view) => {
   const size = VIEW_SIZES[view] || VIEW_SIZES.main;
   if (!mainWindow) return;
+  if (view === "settings" || view === "mini") {
+    dockedEdge = null;
+    expandedEdgeBounds = null;
+    mainWindow.webContents.send("window:dock-state", { docked: false, collapsed: false });
+  }
+  if (view === "edge") return;
   mainWindow.setResizable(true);
   mainWindow.setSize(size.width, size.height, true);
   mainWindow.setResizable(false);
+});
+
+ipcMain.handle("window:expand-edge", () => expandFromEdge());
+ipcMain.handle("window:collapse-edge", () => {
+  if (!dockedEdge) return;
+  clearTimeout(collapseTimer);
+  collapseTimer = setTimeout(() => collapseToEdge(), 420);
 });
 
 ipcMain.handle("window:set-always-on-top", (_event, value) => {

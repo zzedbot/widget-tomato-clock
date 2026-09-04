@@ -1,6 +1,6 @@
 export type TimerMode = "focus" | "shortBreak" | "longBreak";
 export type TimerPhase = "idle" | "running" | "paused" | "completed";
-export type ViewMode = "main" | "mini" | "settings";
+export type ViewMode = "main" | "mini" | "settings" | "edge";
 
 export interface Settings {
   focusMinutes: number;
@@ -35,5 +35,8 @@ export interface DesktopApi {
   showNotification: (payload: { title: string; body: string }) => Promise<boolean>;
   updateTray: (payload: { label: string; remaining: string; running: boolean; paused: boolean }) => void;
   hideWindow: () => Promise<void>;
+  expandEdge: () => Promise<void>;
+  collapseEdge: () => Promise<void>;
+  onDockState: (callback: (state: { docked: boolean; collapsed: boolean }) => void) => () => void;
   onTrayAction: (callback: (action: string) => void) => () => void;
 }

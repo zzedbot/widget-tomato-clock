@@ -164,6 +164,7 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(() => readJson(SETTINGS_KEY, DEFAULT_SETTINGS));
   const [timer, setTimer] = useState<TimerState>(() => normalizeForToday(readJson(TIMER_KEY, createInitialState())));
   const [view, setView] = useState<ViewMode>("main");
+  const [edgeDocked, setEdgeDocked] = useState(false);
   const [now, setNow] = useState(Date.now());
   const completionBusy = useRef(false);
   const remaining = remainingAt(timer, now);
@@ -185,12 +186,12 @@ export default function App() {
     if (shouldAutoStart) {
       const started = startTimer(prepareNext(next, settings));
       persist(started);
-      if (started.mode === "focus" && settings.autoCollapse) setView("mini");
+      if (started.mode === "focus" && settings.autoCollapse && !edgeDocked) setView("mini");
     } else {
       persist(next);
       setView("main");
     }
-  }, [persist, settings]);
+  }, [edgeDocked, persist, settings]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 250);
@@ -212,8 +213,13 @@ export default function App() {
   }, [settings]);
 
   useEffect(() => {
-    void window.tomatoDesktop?.setView(view);
+    if (view !== "edge") void window.tomatoDesktop?.setView(view);
   }, [view]);
+
+  useEffect(() => window.tomatoDesktop?.onDockState((state) => {
+    setEdgeDocked(state.docked);
+    setView(state.collapsed ? "edge" : "main");
+  }), []);
 
   const toggleTimer = useCallback(() => {
     if (timer.phase === "running") {
@@ -224,8 +230,8 @@ export default function App() {
     const ready = timer.phase === "completed" ? prepareNext(timer, settings) : timer;
     const started = startTimer(ready);
     persist(started);
-    if (started.mode === "focus" && settings.autoCollapse) setView("mini");
-  }, [persist, settings, timer]);
+    if (started.mode === "focus" && settings.autoCollapse && !edgeDocked) setView("mini");
+  }, [edgeDocked, persist, settings, timer]);
 
   const skip = useCallback(() => {
     persist(skipTimer(timer, settings));
@@ -263,6 +269,20 @@ export default function App() {
     return <SettingsPanel value={settings} onSave={saveSettings} onCancel={() => setView("main")} />;
   }
 
+  if (view === "edge") {
+    return (
+      <main
+        className={`edge-widget ${isBreak ? "break-theme" : ""}`}
+        title={`${phaseLabel(timer)} · ${formatTime(remaining)}`}
+        onMouseEnter={() => window.tomatoDesktop?.expandEdge()}
+      >
+        <TomatoMascot mood={mood} />
+        <span className="edge-status" aria-hidden="true" />
+        <span className="sr-only">{phaseLabel(timer)}，剩余 {formatTime(remaining)}。鼠标移入展开挂件。</span>
+      </main>
+    );
+  }
+
   if (view === "mini") {
     return (
       <main className={`mini-widget drag-region ${isBreak ? "break-theme" : ""}`} onDoubleClick={() => setView("main")}>
@@ -280,7 +300,7 @@ export default function App() {
   }
 
   return (
-    <main className={`widget drag-region ${isBreak ? "break-theme" : ""}`}>
+    <main className={`widget drag-region ${isBreak ? "break-theme" : ""}`} onMouseLeave={() => edgeDocked && window.tomatoDesktop?.collapseEdge()}>
       <div className="drag-handle" aria-hidden="true" />
       <header className="widget-header">
         <div className="status"><span className="status-dot" />{phaseLabel(timer)}</div>
