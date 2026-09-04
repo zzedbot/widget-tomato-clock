@@ -4,9 +4,24 @@ const { collapsedBounds, expandedBounds, findDockEdge } = require("./docking.cjs
 
 const workArea = { x: 0, y: 0, width: 1920, height: 1040 };
 
-test("detects the nearest screen edge inside the threshold", () => {
-  assert.equal(findDockEdge({ x: 8, y: 300, width: 392, height: 270 }, workArea), "left");
+test("detects every work-area edge inside the threshold", () => {
+  assert.equal(findDockEdge({ x: 20, y: 300, width: 392, height: 270 }, workArea), "left");
+  assert.equal(findDockEdge({ x: 1500, y: 300, width: 392, height: 270 }, workArea), "right");
+  assert.equal(findDockEdge({ x: 700, y: 24, width: 392, height: 270 }, workArea), "top");
+  assert.equal(findDockEdge({ x: 700, y: 744, width: 392, height: 270 }, workArea), "bottom");
   assert.equal(findDockEdge({ x: 500, y: 300, width: 392, height: 270 }, workArea), null);
+});
+
+test("docks when any window edge has crossed outside the work area", () => {
+  assert.equal(findDockEdge({ x: -140, y: 300, width: 392, height: 270 }, workArea), "left");
+  assert.equal(findDockEdge({ x: 1810, y: 300, width: 392, height: 270 }, workArea), "right");
+  assert.equal(findDockEdge({ x: 700, y: -90, width: 392, height: 270 }, workArea), "top");
+  assert.equal(findDockEdge({ x: 700, y: 980, width: 392, height: 270 }, workArea), "bottom");
+});
+
+test("uses the deepest crossing to resolve a corner", () => {
+  assert.equal(findDockEdge({ x: -80, y: -20, width: 392, height: 270 }, workArea), "left");
+  assert.equal(findDockEdge({ x: -10, y: -70, width: 392, height: 270 }, workArea), "top");
 });
 
 test("collapses to a visible tomato at the right edge", () => {

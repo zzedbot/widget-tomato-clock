@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, Tray } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, Notification, screen, Tray } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { collapsedBounds, expandedBounds, findDockEdge } = require("./docking.cjs");
@@ -21,8 +21,10 @@ let trayState = { label: "待开始", remaining: "25:00", running: false, paused
 let dockedEdge = null;
 let expandedEdgeBounds = null;
 let adjustingBounds = false;
+let dockCollapsed = false;
 let collapseTimer = null;
 let edgeCheckTimer = null;
+let boundsAnimationTimer = null;
 
 function statePath() {
   return path.join(app.getPath("userData"), "window-state.json");
@@ -43,11 +45,44 @@ function writeWindowState() {
   fs.writeFileSync(statePath(), JSON.stringify({ ...current, bounds, dockedEdge }));
 }
 
+function stopBoundsAnimation() {
+  clearInterval(boundsAnimationTimer);
+  boundsAnimationTimer = null;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setResizable(false);
+  adjustingBounds = false;
+}
+
 function setBoundsSafely(bounds, animate = true) {
   if (!mainWindow) return;
+  stopBoundsAnimation();
+  const start = mainWindow.getBounds();
+  if (!animate || nativeTheme.shouldUseReducedMotion) {
+    adjustingBounds = true;
+    mainWindow.setResizable(true);
+    mainWindow.setBounds(bounds);
+    mainWindow.setResizable(false);
+    setTimeout(() => { adjustingBounds = false; }, 40);
+    return;
+  }
+
+  const startedAt = Date.now();
+  const duration = 180;
   adjustingBounds = true;
-  mainWindow.setBounds(bounds, animate);
-  setTimeout(() => { adjustingBounds = false; }, 180);
+  mainWindow.setResizable(true);
+  boundsAnimationTimer = setInterval(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      stopBoundsAnimation();
+      return;
+    }
+    const elapsed = Math.min(1, (Date.now() - startedAt) / duration);
+    const eased = 1 - Math.pow(1 - elapsed, 3);
+    const next = {};
+    for (const key of ["x", "y", "width", "height"]) {
+      next[key] = Math.round(start[key] + (bounds[key] - start[key]) * eased);
+    }
+    mainWindow.setBounds(next);
+    if (elapsed === 1) stopBoundsAnimation();
+  }, 16);
 }
 
 function collapseToEdge(edge = dockedEdge, sourceBounds) {
@@ -57,6 +92,7 @@ function collapseToEdge(edge = dockedEdge, sourceBounds) {
   const display = screen.getDisplayMatching(current);
   if (!dockedEdge) expandedEdgeBounds = current;
   dockedEdge = edge;
+  dockCollapsed = true;
   setBoundsSafely(collapsedBounds(edge, current, display.workArea, VIEW_SIZES.edge.width));
   mainWindow.webContents.send("window:dock-state", { docked: true, collapsed: true });
   writeWindowState();
@@ -68,6 +104,7 @@ function expandFromEdge() {
   const current = mainWindow.getBounds();
   const display = screen.getDisplayMatching(current);
   expandedEdgeBounds = expandedBounds(dockedEdge, current, display.workArea, VIEW_SIZES.main);
+  dockCollapsed = false;
   setBoundsSafely(expandedEdgeBounds);
   mainWindow.webContents.send("window:dock-state", { docked: true, collapsed: false });
 }
@@ -78,9 +115,13 @@ function checkEdgeDock() {
   const display = screen.getDisplayMatching(bounds);
   const edge = findDockEdge(bounds, display.workArea);
   if (edge) {
-    collapseToEdge(edge, bounds);
+    // A docked expanded window deliberately still touches the edge. Do not
+    // collapse it again until the renderer reports mouse leave.
+    if (!dockedEdge) collapseToEdge(edge, bounds);
+    else if (dockCollapsed && edge !== dockedEdge) collapseToEdge(edge, bounds);
   } else if (dockedEdge) {
     dockedEdge = null;
+    dockCollapsed = false;
     expandedEdgeBounds = null;
     mainWindow.webContents.send("window:dock-state", { docked: false, collapsed: false });
     writeWindowState();
@@ -181,7 +222,7 @@ function createWindow() {
     writeWindowState();
   });
   mainWindow.on("will-move", () => {
-    adjustingBounds = false;
+    stopBoundsAnimation();
     clearTimeout(collapseTimer);
   });
   mainWindow.on("moved", () => {
@@ -218,6 +259,7 @@ ipcMain.handle("window:set-view", (_event, view) => {
   if (!mainWindow) return;
   if (view === "settings" || view === "mini") {
     dockedEdge = null;
+    dockCollapsed = false;
     expandedEdgeBounds = null;
     mainWindow.webContents.send("window:dock-state", { docked: false, collapsed: false });
   }

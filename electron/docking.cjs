@@ -1,18 +1,28 @@
-const EDGE_THRESHOLD = 18;
+// Electron returns BrowserWindow bounds and Display.workArea in device-independent
+// pixels (DIP), so this threshold stays consistent across Windows DPI scales.
+const EDGE_THRESHOLD = 32;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
 function findDockEdge(bounds, workArea, threshold = EDGE_THRESHOLD) {
-  const distances = {
-    left: Math.abs(bounds.x - workArea.x),
-    right: Math.abs(workArea.x + workArea.width - (bounds.x + bounds.width)),
-    top: Math.abs(bounds.y - workArea.y),
-    bottom: Math.abs(workArea.y + workArea.height - (bounds.y + bounds.height))
-  };
-  const [edge, distance] = Object.entries(distances).sort((a, b) => a[1] - b[1])[0];
-  return distance <= threshold ? edge : null;
+  // A positive gap means the window is inside the work area. Zero means the
+  // edges touch. A negative gap means that window edge is already outside.
+  // Do not use Math.abs here: every negative gap must remain eligible.
+  const gaps = [
+    { edge: "left", gap: bounds.x - workArea.x },
+    { edge: "right", gap: workArea.x + workArea.width - (bounds.x + bounds.width) },
+    { edge: "top", gap: bounds.y - workArea.y },
+    { edge: "bottom", gap: workArea.y + workArea.height - (bounds.y + bounds.height) }
+  ];
+  const candidates = gaps.filter(({ gap }) => gap <= threshold);
+  if (candidates.length === 0) return null;
+
+  // At a corner, a more negative gap represents the edge crossed further.
+  // If all gaps are positive, the smallest gap is the nearest edge.
+  candidates.sort((a, b) => a.gap - b.gap);
+  return candidates[0].edge;
 }
 
 function collapsedBounds(edge, current, workArea, size) {

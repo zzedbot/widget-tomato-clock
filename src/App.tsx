@@ -167,6 +167,7 @@ export default function App() {
   const [edgeDocked, setEdgeDocked] = useState(false);
   const [now, setNow] = useState(Date.now());
   const completionBusy = useRef(false);
+  const edgeHoverReadyAt = useRef(0);
   const remaining = remainingAt(timer, now);
   const progress = Math.min(1, Math.max(0, 1 - remaining / timer.durationMs));
 
@@ -218,6 +219,7 @@ export default function App() {
 
   useEffect(() => window.tomatoDesktop?.onDockState((state) => {
     setEdgeDocked(state.docked);
+    if (state.collapsed) edgeHoverReadyAt.current = Date.now() + 240;
     setView((current) => {
       if (state.collapsed) return "edge";
       if (state.docked) return "main";
@@ -278,7 +280,9 @@ export default function App() {
       <main
         className={`edge-widget ${isBreak ? "break-theme" : ""}`}
         title={`${phaseLabel(timer)} · ${formatTime(remaining)}`}
-        onMouseEnter={() => window.tomatoDesktop?.expandEdge()}
+        onMouseEnter={() => {
+          if (Date.now() >= edgeHoverReadyAt.current) void window.tomatoDesktop?.expandEdge();
+        }}
       >
         <TomatoMascot mood={mood} />
         <span className="edge-status" aria-hidden="true" />

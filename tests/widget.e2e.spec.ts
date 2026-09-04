@@ -31,12 +31,19 @@ test("start collapses to mini and edge docking expands on hover", async () => {
 
     await electronApp.evaluate(({ BrowserWindow, screen }) => {
       const window = BrowserWindow.getAllWindows()[0];
-      const workArea = screen.getDisplayMatching(window.getBounds()).workArea;
-      window.setPosition(workArea.x + 2, workArea.y + 160);
+      // Use the desktop's outermost left display. Moving across an internal
+      // monitor seam is normal cross-screen movement and must not dock.
+      const workArea = screen.getAllDisplays().reduce((leftmost, display) =>
+        display.workArea.x < leftmost.x ? display.workArea : leftmost,
+      screen.getPrimaryDisplay().workArea);
+      // Deliberately move well beyond its left edge. Overflow must still dock.
+      window.setPosition(workArea.x - 120, workArea.y + 160);
     });
     await expect(page.locator(".edge-widget")).toBeVisible();
     await expectWindowSize(electronApp, 62, 62);
 
+    await page.mouse.move(500, 400);
+    await page.waitForTimeout(260);
     await page.locator(".edge-widget").hover();
     await expect(page.locator(".widget")).toBeVisible();
     await expectWindowSize(electronApp, 392, 270);
