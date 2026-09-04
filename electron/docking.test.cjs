@@ -35,8 +35,15 @@ test("checks the real cursor against the expanded window bounds", () => {
 test("collapses to a visible tomato at the right edge", () => {
   assert.deepEqual(
     collapsedBounds("right", { x: 1528, y: 300, width: 392, height: 270 }, workArea, 62),
-    { x: 1858, y: 404, width: 62, height: 62 }
+    { x: 1858, y: 300, width: 62, height: 62 }
   );
+});
+
+test("keeps the window top aligned when docking to a side", () => {
+  assert.equal(collapsedBounds("left", { x: -40, y: 318, width: 392, height: 270 }, workArea, 62).y, 318);
+  assert.equal(collapsedBounds("right", { x: 1580, y: 318, width: 392, height: 270 }, workArea, 62).y, 318);
+  assert.equal(expandedBounds("left", { x: 0, y: 318, width: 62, height: 62 }, workArea, { width: 392, height: 270 }).y, 318);
+  assert.equal(expandedBounds("right", { x: 1858, y: 318, width: 62, height: 62 }, workArea, { width: 392, height: 270 }).y, 318);
 });
 
 test("expands inward without leaving the work area", () => {

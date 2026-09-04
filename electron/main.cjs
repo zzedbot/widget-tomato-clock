@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, Notification, screen, Tray } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, Tray } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { collapsedBounds, containsPoint, expandedBounds, findDockEdge } = require("./docking.cjs");
@@ -25,7 +25,7 @@ let dockCollapsed = false;
 let userMoving = false;
 let collapseTimer = null;
 let edgeCheckTimer = null;
-let boundsAnimationTimer = null;
+let boundsAdjustmentTimer = null;
 
 function statePath() {
   return path.join(app.getPath("userData"), "window-state.json");
@@ -46,44 +46,24 @@ function writeWindowState() {
   fs.writeFileSync(statePath(), JSON.stringify({ ...current, bounds, dockedEdge }));
 }
 
-function stopBoundsAnimation() {
-  clearInterval(boundsAnimationTimer);
-  boundsAnimationTimer = null;
+function stopBoundsAdjustment() {
+  clearTimeout(boundsAdjustmentTimer);
+  boundsAdjustmentTimer = null;
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setResizable(false);
   adjustingBounds = false;
 }
 
-function setBoundsSafely(bounds, animate = true) {
+function setBoundsSafely(bounds) {
   if (!mainWindow) return;
-  stopBoundsAnimation();
-  const start = mainWindow.getBounds();
-  if (!animate || nativeTheme.shouldUseReducedMotion) {
-    adjustingBounds = true;
-    mainWindow.setResizable(true);
-    mainWindow.setBounds(bounds);
-    mainWindow.setResizable(false);
-    setTimeout(() => { adjustingBounds = false; }, 40);
-    return;
-  }
-
-  const startedAt = Date.now();
-  const duration = 180;
+  stopBoundsAdjustment();
   adjustingBounds = true;
   mainWindow.setResizable(true);
-  boundsAnimationTimer = setInterval(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      stopBoundsAnimation();
-      return;
-    }
-    const elapsed = Math.min(1, (Date.now() - startedAt) / duration);
-    const eased = 1 - Math.pow(1 - elapsed, 3);
-    const next = {};
-    for (const key of ["x", "y", "width", "height"]) {
-      next[key] = Math.round(start[key] + (bounds[key] - start[key]) * eased);
-    }
-    mainWindow.setBounds(next);
-    if (elapsed === 1) stopBoundsAnimation();
-  }, 16);
+  // Windows native resizing becomes visibly uneven when driven frame by frame.
+  // Apply the bounds once and let Chromium animate the rendered surface on the
+  // compositor thread instead.
+  mainWindow.setBounds(bounds);
+  mainWindow.setResizable(false);
+  boundsAdjustmentTimer = setTimeout(() => { adjustingBounds = false; }, 80);
 }
 
 function collapseToEdge(edge = dockedEdge, sourceBounds) {
@@ -226,7 +206,7 @@ function createWindow() {
   });
   mainWindow.on("will-move", () => {
     userMoving = true;
-    stopBoundsAnimation();
+    stopBoundsAdjustment();
     clearTimeout(collapseTimer);
     clearTimeout(edgeCheckTimer);
   });

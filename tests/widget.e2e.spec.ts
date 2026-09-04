@@ -29,7 +29,7 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await page.locator(".mini-widget").dblclick();
     await expect(page.locator(".widget")).toBeVisible();
 
-    await electronApp.evaluate(({ BrowserWindow, screen }) => {
+    const expectedDockTop = await electronApp.evaluate(({ BrowserWindow, screen }) => {
       const window = BrowserWindow.getAllWindows()[0];
       // Use the desktop's outermost left display. Moving across an internal
       // monitor seam is normal cross-screen movement and must not dock.
@@ -39,6 +39,7 @@ test("start collapses to mini and edge docking expands on hover", async () => {
       // Deliberately move well beyond its left edge. Overflow must still dock.
       window.emit("will-move");
       window.setPosition(workArea.x - 120, workArea.y + 160);
+      return workArea.y + 160;
     });
 
     // Reaching the edge while the mouse button is still held must not alter
@@ -50,12 +51,15 @@ test("start collapses to mini and edge docking expands on hover", async () => {
 
     await expect(page.locator(".edge-widget")).toBeVisible();
     await expectWindowSize(electronApp, 62, 62);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds().y)).toBe(expectedDockTop);
+    await expect(page.locator(".edge-widget")).toHaveCSS("animation-duration", "0.24s");
 
     await page.mouse.move(500, 400);
     await page.waitForTimeout(260);
     await page.locator(".edge-widget").hover();
     await expect(page.locator(".widget")).toBeVisible();
     await expectWindowSize(electronApp, 392, 270);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds().y)).toBe(expectedDockTop);
 
     // A transient mouseleave during resize must not collapse a panel while
     // the real cursor is still inside it.
