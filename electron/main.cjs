@@ -3,6 +3,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { collapsedBounds, expandedBounds, findDockEdge } = require("./docking.cjs");
 
+if (process.env.TOMATO_E2E_USER_DATA) {
+  app.setPath("userData", process.env.TOMATO_E2E_USER_DATA);
+}
+
 const VIEW_SIZES = {
   main: { width: 392, height: 270 },
   mini: { width: 300, height: 86 },
@@ -18,6 +22,7 @@ let dockedEdge = null;
 let expandedEdgeBounds = null;
 let adjustingBounds = false;
 let collapseTimer = null;
+let edgeCheckTimer = null;
 
 function statePath() {
   return path.join(app.getPath("userData"), "window-state.json");
@@ -80,6 +85,12 @@ function checkEdgeDock() {
     mainWindow.webContents.send("window:dock-state", { docked: false, collapsed: false });
     writeWindowState();
   }
+}
+
+function scheduleEdgeCheck(delay = 120) {
+  if (adjustingBounds) return;
+  clearTimeout(edgeCheckTimer);
+  edgeCheckTimer = setTimeout(checkEdgeDock, delay);
 }
 
 function visibleBounds(saved) {
@@ -165,8 +176,16 @@ function createWindow() {
       mainWindow.hide();
     }
   });
+  mainWindow.on("move", () => {
+    scheduleEdgeCheck();
+    writeWindowState();
+  });
+  mainWindow.on("will-move", () => {
+    adjustingBounds = false;
+    clearTimeout(collapseTimer);
+  });
   mainWindow.on("moved", () => {
-    if (!adjustingBounds) checkEdgeDock();
+    scheduleEdgeCheck(0);
     writeWindowState();
   });
 }

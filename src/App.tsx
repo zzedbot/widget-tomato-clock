@@ -218,7 +218,11 @@ export default function App() {
 
   useEffect(() => window.tomatoDesktop?.onDockState((state) => {
     setEdgeDocked(state.docked);
-    setView(state.collapsed ? "edge" : "main");
+    setView((current) => {
+      if (state.collapsed) return "edge";
+      if (state.docked) return "main";
+      return current === "edge" ? "main" : current;
+    });
   }), []);
 
   const toggleTimer = useCallback(() => {

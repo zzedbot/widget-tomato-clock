@@ -55,6 +55,7 @@ npm run dev
 
 ```bash
 npm test
+npm run test:e2e
 npm run build
 npm run pack
 ```
