@@ -37,8 +37,17 @@ test("start collapses to mini and edge docking expands on hover", async () => {
         display.workArea.x < leftmost.x ? display.workArea : leftmost,
       screen.getPrimaryDisplay().workArea);
       // Deliberately move well beyond its left edge. Overflow must still dock.
+      window.emit("will-move");
       window.setPosition(workArea.x - 120, workArea.y + 160);
     });
+
+    // Reaching the edge while the mouse button is still held must not alter
+    // the window. The native moved event represents releasing the drag.
+    await page.waitForTimeout(260);
+    await expect(page.locator(".widget")).toBeVisible();
+    await expectWindowSize(electronApp, 392, 270);
+    await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit("moved"));
+
     await expect(page.locator(".edge-widget")).toBeVisible();
     await expectWindowSize(electronApp, 62, 62);
 

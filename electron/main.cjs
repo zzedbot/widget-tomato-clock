@@ -22,6 +22,7 @@ let dockedEdge = null;
 let expandedEdgeBounds = null;
 let adjustingBounds = false;
 let dockCollapsed = false;
+let userMoving = false;
 let collapseTimer = null;
 let edgeCheckTimer = null;
 let boundsAnimationTimer = null;
@@ -129,7 +130,7 @@ function checkEdgeDock() {
 }
 
 function scheduleEdgeCheck(delay = 120) {
-  if (adjustingBounds) return;
+  if (adjustingBounds || userMoving) return;
   clearTimeout(edgeCheckTimer);
   edgeCheckTimer = setTimeout(checkEdgeDock, delay);
 }
@@ -218,14 +219,19 @@ function createWindow() {
     }
   });
   mainWindow.on("move", () => {
-    scheduleEdgeCheck();
+    // Programmatic moves do not emit will-move/moved on Windows, so keep the
+    // debounced fallback for them. During a real drag, wait for mouse release.
+    if (!userMoving) scheduleEdgeCheck();
     writeWindowState();
   });
   mainWindow.on("will-move", () => {
+    userMoving = true;
     stopBoundsAnimation();
     clearTimeout(collapseTimer);
+    clearTimeout(edgeCheckTimer);
   });
   mainWindow.on("moved", () => {
+    userMoving = false;
     scheduleEdgeCheck(0);
     writeWindowState();
   });
