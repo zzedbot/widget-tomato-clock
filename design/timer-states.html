@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>番茄钟计时状态总览</title>
+  <meta name="view-transition" content="same-origin">
+  <link rel="prefetch" href="main-widget.html" as="document">
+  <link rel="prefetch" href="settings.html" as="document">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+  <style>
+    :root { 
+      color-scheme: light; 
+      --tomato-red: #d9483b;
+      --leaf-green: #2f3a2f;
+      --cream-base: #fff7ed;
+      --text-brown: #3b2a24;
+      --subtle-brown: #80655c;
+      --peach-accent: #ffd8c7;
+    }
+
+    * { box-sizing: border-box; }
+    
+    html { background-color: #f3eee8; }
+    @view-transition { navigation: auto; }
+    ::view-transition { background-color: #f3eee8; }
+    
+    ::view-transition-old(main-content) {
+      animation: 0.25s ease-out both fade-out;
+    }
+    ::view-transition-new(main-content) {
+      animation: 0.25s ease-in 0.1s both fade-in;
+    }
+
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+    body { font-family: "Segoe UI Variable", "Segoe UI", sans-serif; }
+
+    .widget-container { 
+      width: 320px; 
+      height: 210px; 
+      border-radius: 20px; 
+      padding: 16px; 
+      position: relative; 
+      display: flex; 
+      flex-direction: column; 
+      background: rgba(255,247,237,.98); 
+      border: 1px solid rgba(255,255,255,0.8); 
+      box-shadow: 0 12px 28px rgba(116,54,38,.08); 
+      overflow: hidden;
+    }
+
+    .timer-text { font-variant-numeric: tabular-nums; letter-spacing: -0.05em; }
+    
+    .mascot { position: absolute; width: 36px; height: 32px; border-radius: 49% 49% 45% 45%; background: var(--tomato-red); }
+    .mascot .leaf { position: absolute; width: 20px; height: 7px; left: 7px; top: -3px; border-radius: 60% 25% 60% 25%; background: var(--leaf-green); }
+    .mascot .eye { position: absolute; width: 2px; height: 5px; top: 13px; border-radius: 50%; background: var(--text-brown); }
+    
+    .btn-primary { background: var(--tomato-red); color: white; border-radius: 12px; transition: all 0.2s ease-out; }
+    .btn-secondary { background: var(--peach-accent); color: var(--text-brown); border-radius: 12px; }
+
+    .motion-indicator { 
+      position: absolute; 
+      pointer-events: none; 
+      border: 2px dashed #d9483b88; 
+      border-radius: 50%; 
+      animation: pulse-ring 2s infinite; 
+    }
+    @keyframes pulse-ring { 0% { transform: scale(0.95); opacity: 0.8; } 100% { transform: scale(1.1); opacity: 0; } }
+
+    .badge-focus { background: var(--peach-accent); color: var(--tomato-red); }
+    .badge-break { background: var(--peach-accent); color: var(--leaf-green); }
+    .bg-green-focus { background: var(--leaf-green) !important; }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen bg-[#f3eee8] text-[#3b2a24] p-8 md:p-12 lg:p-20 flex flex-col items-center">
+    
+    <nav class="fixed top-6 bg-white/90 backdrop-blur-md px-6 py-3 rounded-full shadow-lg border border-[#80655c1a] flex gap-6 z-50 transition-all">
+      <a href="main-widget.html" id="nav-home" class="text-sm font-semibold text-[#80655c] hover:text-[#d9483b] transition-colors">主挂件</a>
+      <a href="timer-states.html" id="nav-states" class="text-sm font-semibold text-[#d9483b]">状态总览</a>
+      <a href="settings.html" id="nav-settings" class="text-sm font-semibold text-[#80655c] hover:text-[#d9483b] transition-colors">设置面板</a>
+    </nav>
+
+    <main class="max-w-6xl w-full mt-12" style="view-transition-name: main-content">
+      <header class="mb-16 text-center">
+        <h1 class="text-4xl font-bold tracking-tight mb-4">计时状态总览</h1>
+        <p class="text-[#80655c] text-lg max-w-2xl mx-auto">桌面挂件在不同计时阶段的交互行为与视觉反馈规范。</p>
+      </header>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-12">
+        
+        <!-- State: Ready (待开始) -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-2">
+            <span class="text-xs font-bold uppercase tracking-widest text-[#80655c]">01. 待开始</span>
+            <span class="text-[10px] text-[#80655c] bg-[#ffd8c74d] px-2 py-0.5 rounded">静态准备</span>
+          </div>
+          <div class="widget-container border-[#80655c33]">
+            <div class="flex justify-between items-center mb-2">
+              <div class="flex items-center gap-2 text-[12px] font-bold text-[#80655c]">
+                <div class="w-2 h-2 rounded-full bg-[#80655c]"></div>就绪
+              </div>
+              <div class="flex gap-1">
+                <button class="w-6 h-6 flex items-center justify-center text-[#80655c]"><iconify-icon icon="solar:pin-linear"></iconify-icon></button>
+                <button class="w-6 h-6 flex items-center justify-center text-[#80655c]"><iconify-icon icon="solar:settings-linear"></iconify-icon></button>
+              </div>
+            </div>
+            <div class="flex-1 flex gap-4 items-center">
+              <div class="relative w-28 h-28 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full bg-white border-4 border-[#ffd8c7]"></div>
+                <span class="timer-text text-[32px] font-bold z-10">25:00</span>
+                <div class="mascot right-0 bottom-0 scale-90 opacity-60 grayscale">
+                   <span class="leaf"></span><span class="eye left-[10px]"></span><span class="eye right-[10px]"></span>
+                </div>
+              </div>
+              <div class="flex-1">
+                <p class="text-[10px] text-[#80655c]">任务内容</p>
+                <p class="text-[14px] font-bold">整理项目方案</p>
+                <div class="mt-3 flex gap-1">
+                  <div class="w-4 h-1.5 rounded-full bg-[#d9483b]"></div>
+                  <div class="w-4 h-1.5 rounded-full bg-[#d9483b]"></div>
+                  <div class="w-4 h-1.5 rounded-full bg-[#ffd8c7]"></div>
+                  <div class="w-4 h-1.5 rounded-full bg-[#ffd8c7]"></div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button class="btn-primary w-full h-10 font-bold flex items-center justify-center gap-2">
+                <iconify-icon icon="solar:play-bold"></iconify-icon>开始专注
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-[#80655c] px-2 leading-relaxed">角色呈休眠状态。允许点击“开始”触发动画转换至专注态。</p>
+        </div>
+
+        <!-- State: Focusing (专注中) -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-2">
+            <span class="text-xs font-bold uppercase tracking-widest text-[#d9483b]">02. 专注中</span>
+            <span class="text-[10px] text-[#d9483b] bg-[#ffd8c7] px-2 py-0.5 rounded">活跃计时</span>
+          </div>
+          <div class="widget-container border-[#d9483b33] ring-1 ring-[#d9483b1a]">
+            <div class="flex justify-between items-center mb-2">
+              <div class="flex items-center gap-2 text-[12px] font-bold text-[#d9483b]">
+                <div class="w-2 h-2 rounded-full bg-[#d9483b] animate-pulse"></div>专注中
+              </div>
+              <div class="flex gap-1 text-[#80655c]"><iconify-icon icon="solar:pin-bold"></iconify-icon></div>
+            </div>
+            <div class="flex-1 flex gap-4 items-center">
+              <div class="relative w-28 h-28 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full" style="background: conic-gradient(var(--tomato-red) 0 45%, var(--peach-accent) 45% 100%)"></div>
+                <div class="absolute inset-1 rounded-full bg-[#fff7ed]"></div>
+                <span class="timer-text text-[32px] font-bold z-10">24:59</span>
+                <div class="mascot right-0 bottom-0 scale-90">
+                   <span class="leaf"></span><span class="eye left-[10px]"></span><span class="eye right-[10px]"></span>
+                </div>
+              </div>
+              <div class="flex-1">
+                <p class="text-[14px] font-bold">整理项目方案</p>
+                <div class="mt-4 flex gap-1 items-center text-[10px] text-[#80655c]">
+                  <iconify-icon icon="solar:clock-circle-linear"></iconify-icon> 剩余 24 分钟
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button class="btn-primary flex-1 h-10 font-bold flex items-center justify-center gap-2">
+                <iconify-icon icon="solar:pause-bold"></iconify-icon>暂停
+              </button>
+              <button class="btn-secondary w-10 h-10 flex items-center justify-center"><iconify-icon icon="solar:skip-next-linear" class="text-xl"></iconify-icon></button>
+            </div>
+          </div>
+          <p class="text-xs text-[#80655c] px-2 leading-relaxed">倒计时圆环根据剩余百分比平滑减少。角色保持静止减少干扰。</p>
+        </div>
+
+        <!-- State: Paused (已暂停) -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-2">
+            <span class="text-xs font-bold uppercase tracking-widest text-[#80655c]">03. 已暂停</span>
+            <span class="text-[10px] text-white bg-[#80655c] px-2 py-0.5 rounded">静止</span>
+          </div>
+          <div class="widget-container border-[#80655c33] grayscale-[0.3]">
+            <div class="flex justify-between items-center mb-2">
+              <div class="flex items-center gap-2 text-[12px] font-bold text-[#80655c]">
+                <iconify-icon icon="solar:pause-circle-bold"></iconify-icon>已暂停
+              </div>
+            </div>
+            <div class="flex-1 flex gap-4 items-center opacity-60">
+              <div class="relative w-28 h-28 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-4 border-[#80655c4d]"></div>
+                <span class="timer-text text-[32px] font-bold">18:42</span>
+              </div>
+              <div class="flex-1">
+                <p class="text-[14px] font-bold line-through">整理项目方案</p>
+              </div>
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button class="btn-primary flex-1 h-10 font-bold flex items-center justify-center gap-2">
+                <iconify-icon icon="solar:play-bold"></iconify-icon>继续专注
+              </button>
+              <button class="btn-secondary w-10 h-10 flex items-center justify-center"><iconify-icon icon="solar:restart-linear"></iconify-icon></button>
+            </div>
+          </div>
+          <p class="text-xs text-[#80655c] px-2 leading-relaxed">UI 整体透明度降低。主要操作按钮切换为“继续”。</p>
+        </div>
+
+        <!-- State: Short Break (短休息) -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-2">
+            <span class="text-xs font-bold uppercase tracking-widest text-[#2f3a2f]">04. 短休息</span>
+            <span class="text-[10px] text-[#2f3a2f] bg-[#ffd8c7] px-2 py-0.5 rounded">休息态</span>
+          </div>
+          <div class="widget-container border-[#2f3a2f33]">
+            <div class="flex justify-between items-center mb-2">
+              <div class="flex items-center gap-2 text-[12px] font-bold text-[#2f3a2f]">
+                <iconify-icon icon="solar:coffee-bold"></iconify-icon>休息中
+              </div>
+            </div>
+            <div class="flex-1 flex gap-4 items-center">
+              <div class="relative w-28 h-28 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-4 border-[#2f3a2f33]"></div>
+                <span class="timer-text text-[32px] font-bold text-[#2f3a2f]">05:00</span>
+                <div class="mascot right-0 bottom-0 scale-90 bg-green-focus">
+                   <span class="leaf"></span>
+                   <div class="eye left-[8px] !h-1 w-3 rounded-full bg-[#fff]"></div>
+                   <div class="eye right-[8px] !h-1 w-3 rounded-full bg-[#fff]"></div>
+                </div>
+              </div>
+              <div class="flex-1">
+                <p class="text-[14px] font-bold text-[#2f3a2f]">深呼吸，走动一下</p>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button class="w-full h-10 font-bold flex items-center justify-center gap-2 bg-[#2f3a2f] text-white rounded-[12px]">
+                <iconify-icon icon="solar:arrow-right-bold"></iconify-icon>提前结束休息
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-[#80655c] px-2 leading-relaxed">配色切换为“叶片绿”。角色闭上眼睛表现放松感。</p>
+        </div>
+
+        <!-- State: Long Break (长休息) -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-2">
+            <span class="text-xs font-bold uppercase tracking-widest text-[#2f3a2f]">05. 长休息</span>
+            <span class="text-[10px] border border-[#2f3a2f] px-2 py-0.5 rounded">大休</span>
+          </div>
+          <div class="widget-container border-[#2f3a2f33] bg-[#fdfbf7]">
+            <div class="flex justify-between items-center mb-2">
+              <div class="flex items-center gap-2 text-[12px] font-bold text-[#2f3a2f]">
+                <iconify-icon icon="solar:sleeping-bold"></iconify-icon>长休息
+              </div>
+            </div>
+            <div class="flex-1 flex gap-4 items-center">
+              <div class="relative w-28 h-28 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-4 border-dashed border-[#2f3a2f22]"></div>
+                <span class="timer-text text-[32px] font-bold text-[#2f3a2f]">15:00</span>
+                <div class="mascot right-0 bottom-0 scale-90 bg-green-focus">
+                   <span class="leaf"></span>
+                   <span class="eye left-[10px]"></span><span class="eye right-[10px]"></span>
+                   <div class="absolute -top-4 -right-2 text-[10px] font-bold text-[#2f3a2f] animate-bounce">Zzz</div>
+                </div>
+              </div>
+              <div class="flex-1">
+                <p class="text-[14px] font-bold">完成一轮，彻底放松</p>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button class="w-full h-10 font-bold flex items-center justify-center gap-2 bg-[#2f3a2f] text-white rounded-[12px]">
+                跳过休息
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-[#80655c] px-2 leading-relaxed">更长的休息间隔。视觉风格与短休息一致，加入睡眠微表情。</p>
+        </div>
+
+        <!-- State: Completed (已完成) -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-2">
+            <span class="text-xs font-bold uppercase tracking-widest text-[#d9483b]">06. 已完成</span>
+            <span class="text-[10px] text-[#fff7ed] bg-[#d9483b] px-2 py-0.5 rounded">激励反馈</span>
+          </div>
+          <div class="widget-container border-[#d9483b] bg-[#fff7ed] ring-2 ring-[#ffd8c7]">
+            <div class="motion-indicator inset-[-10px]"></div>
+            <div class="flex justify-center mt-2">
+              <div class="text-[12px] font-bold text-[#d9483b]">专注达成！</div>
+            </div>
+            <div class="flex-1 flex flex-col items-center justify-center gap-2">
+               <div class="mascot relative !w-16 !h-14">
+                  <span class="leaf scale-150 top-[-8px]"></span>
+                  <div class="eye left-[16px] !w-1 !h-1 bg-white"></div>
+                  <div class="eye right-[16px] !w-1 !h-1 bg-white"></div>
+                  <div class="absolute bottom-3 left-1/2 -translate-x-1/2 w-6 h-3 border-b-4 border-white rounded-full"></div>
+               </div>
+               <p class="text-[16px] font-bold mt-2">完成今日第 3 个番茄</p>
+            </div>
+            <div class="mt-3">
+              <button class="btn-primary w-full h-10 font-bold">
+                继续开启专注
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-[#80655c] px-2 leading-relaxed">播放一次性涟漪特效（非持续脉冲）。角色表情切换为大笑。</p>
+        </div>
+
+      </div>
+
+      <footer class="mt-24 border-t border-[#80655c1a] pt-12 pb-20">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <section class="space-y-4">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-[#80655c]">动效与无障碍规范</h3>
+            <ul class="space-y-3">
+              <li class="flex gap-3 text-xs leading-relaxed">
+                <span class="text-[#d9483b] font-bold">状态切换:</span>
+                160-220ms ease-out 缓动，确保视觉顺滑但不产生眩晕感。
+              </li>
+              <li class="flex gap-3 text-xs leading-relaxed">
+                <span class="text-[#d9483b] font-bold">减弱动态:</span>
+                当检测到系统“减弱动态效果”时，取消所有背景呼吸动画及奖励涟漪，仅保留进度条位移。
+              </li>
+              <li class="flex gap-3 text-xs leading-relaxed">
+                <span class="text-[#d9483b] font-bold">通知交互:</span>
+                专注结束时通过系统通知栏弹出，点击通知直接进入“开始休息”或“跳过休息”。
+              </li>
+            </ul>
+          </section>
+          <section class="space-y-4">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-[#80655c]">色彩使用原则</h3>
+            <div class="flex gap-4">
+              <div class="flex-1 p-4 rounded-2xl bg-white border border-[#80655c1a] text-center">
+                <div class="w-8 h-8 rounded-full bg-[#d9483b] mx-auto mb-2"></div>
+                <span class="text-[10px] font-bold">专注 (#D9483B)</span>
+              </div>
+              <div class="flex-1 p-4 rounded-2xl bg-white border border-[#80655c1a] text-center">
+                <div class="w-8 h-8 rounded-full bg-[#2f3a2f] mx-auto mb-2"></div>
+                <span class="text-[10px] font-bold">休息 (#2F3A2F)</span>
+              </div>
+              <div class="flex-1 p-4 rounded-2xl bg-white border border-[#80655c1a] text-center">
+                <div class="w-8 h-8 rounded-full bg-[#80655c] mx-auto mb-2"></div>
+                <span class="text-[10px] font-bold">中性 (#80655C)</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

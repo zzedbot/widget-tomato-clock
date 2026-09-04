@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="view-transition" content="same-origin">
+  <title>番茄设置 · 番茄伴侣</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+  <link rel="prefetch" href="main-widget.html" as="document">
+  <link rel="prefetch" href="timer-states.html" as="document">
+  <link rel="prefetch" href="settings.html" as="document">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg-cream: #fff7ed;
+      --accent-red: #d9483b;
+      --leaf-green: #2f3a2f;
+      --text-brown: #3b2a24;
+      --text-muted: #80655c;
+      --highlight-peach: #ffd8c7;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background: #f3eee8; font-family: "Segoe UI Variable", "Segoe UI", sans-serif; }
+    
+    /* View Transitions */
+    @view-transition { navigation: auto; }
+    html { background-color: #f3eee8; }
+    ::view-transition-old(main-content) { animation: 0.25s ease-out both fade-out; }
+    ::view-transition-new(main-content) { animation: 0.25s ease-in 0.1s both fade-in; }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+    .wash { position: absolute; border-radius: 999px; filter: blur(4px); opacity: .78; z-index: 0; }
+    .wash.one { width: 430px; height: 430px; left: -150px; top: -160px; background: #ffd8c7; }
+    .wash.two { width: 360px; height: 360px; right: -120px; bottom: -150px; background: #fff7ed; }
+
+    .settings-panel { 
+      width: 392px; 
+      height: 580px; 
+      border-radius: 24px; 
+      background: rgba(255,247,237,.98); 
+      border: 1px solid rgba(255,255,255,.9); 
+      box-shadow: 0 30px 65px rgba(116,54,38,.18); 
+      position: relative; 
+      display: flex; 
+      flex-direction: column; 
+      overflow: hidden;
+      color: var(--text-brown);
+    }
+
+    .panel-header {
+      padding: 18px 20px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(255,247,237,.98);
+    }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      transition: color 0.2s;
+      text-decoration: none;
+    }
+    .back-btn:hover { color: var(--accent-red); }
+
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 20px 24px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--highlight-peach) transparent;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 24px 0 12px;
+    }
+
+    .setting-group {
+      background: rgba(128,101,92,0.04);
+      border-radius: 16px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .setting-row {
+      background: var(--bg-cream);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: 12px;
+    }
+
+    .setting-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .setting-label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .setting-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Input Styles */
+    .stepper {
+      display: flex;
+      align-items: center;
+      background: var(--highlight-peach);
+      border-radius: 8px;
+      padding: 2px;
+    }
+    .stepper input {
+      width: 40px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--accent-red);
+      outline: none;
+    }
+    .stepper button {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: none;
+      background: white;
+      color: var(--accent-red);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    /* Toggle Switch */
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: var(--highlight-peach);
+      transition: .3s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--accent-red); }
+    input:checked + .slider:before { transform: translateX(16px); }
+
+    .volume-slider {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--highlight-peach);
+      outline: none;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent-red);
+      cursor: pointer;
+    }
+
+    .footer-actions {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(128,101,92,0.1);
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-reset {
+      flex: 1;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--highlight-peach);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-save {
+      flex: 2;
+      height: 40px;
+      border-radius: 12px;
+      border: none;
+      background: var(--accent-red);
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(217,72,59,0.2);
+    }
+
+    .mascot-hint {
+      position: absolute;
+      right: -8px;
+      top: 55px;
+      width: 44px;
+      height: 38px;
+      border-radius: 48%;
+      background: var(--accent-red);
+      transform: rotate(10deg);
+      display: grid;
+      place-items: center;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen flex items-center justify-center p-8 relative">
+    <div class="wash one"></div>
+    <div class="wash two"></div>
+
+    <main style="view-transition-name: main-content" class="relative z-10">
+      <article class="settings-panel">
+        <div class="mascot-hint">
+          <div class="relative w-full h-full">
+            <div class="absolute w-2 h-2 rounded-full bg-white top-3 left-3"></div>
+            <div class="absolute w-2 h-2 rounded-full bg-white top-3 right-3"></div>
+          </div>
+        </div>
+
+        <header class="panel-header">
+          <a href="main-widget.html" id="back-to-timer" class="back-btn">
+            <iconify-icon icon="solar:alt-arrow-left-linear" width="18"></iconify-icon>
+            <span>设置中心</span>
+          </a>
+          <button class="icon-btn text-muted" aria-label="关闭">
+             <iconify-icon icon="solar:close-circle-linear" width="20"></iconify-icon>
+          </button>
+        </header>
+
+        <div class="scroll-area">
+          <div class="section-title">专注与休息时长</div>
+          <div class="setting-group">
+            <div class="setting-row">
+              <div class="setting-label">专注时长</div>
+              <div class="stepper">
+                <button><iconify-icon icon="solar:minus-linear"></iconify-icon></button>
+                <input type="text" value="25" readonly>
+                <button><iconify-icon icon="solar:plus-linear"></iconify-icon></button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">短休息</div>
+              <div class="stepper">
+                <button><iconify-icon icon="solar:minus-linear"></iconify-icon></button>
+                <input type="text" value="5" readonly>
+                <button><iconify-icon icon="solar:plus-linear"></iconify-icon></button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">长休息</div>
+              <div class="stepper">
+                <button><iconify-icon icon="solar:minus-linear"></iconify-icon></button>
+                <input type="text" value="15" readonly>
+                <button><iconify-icon icon="solar:plus-linear"></iconify-icon></button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">长休息间隔</span>
+                <span class="setting-sub">每完成几个番茄开启长休息</span>
+              </div>
+              <div class="stepper">
+                <button><iconify-icon icon="solar:minus-linear"></iconify-icon></button>
+                <input type="text" value="4" readonly>
+                <button><iconify-icon icon="solar:plus-linear"></iconify-icon></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-title">自动化</div>
+          <div class="setting-group">
+            <div class="setting-row">
+              <div class="setting-label">自动开始休息</div>
+              <label class="toggle">
+                <input type="checkbox" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">自动开始下一轮专注</div>
+              <label class="toggle">
+                <input type="checkbox">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">专注时自动收起挂件</div>
+              <label class="toggle">
+                <input type="checkbox" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="section-title">声音与显示</div>
+          <div class="setting-group">
+            <div class="setting-row">
+              <div class="setting-label">提醒声音</div>
+              <label class="toggle">
+                <input type="checkbox" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-row flex-col items-start gap-4">
+              <div class="w-full flex justify-between items-center">
+                <div class="setting-label">音量调节</div>
+                <span class="text-[11px] font-bold text-[#d9483b]">80%</span>
+              </div>
+              <input type="range" class="volume-slider w-full" min="0" max="100" value="80">
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">始终置顶</div>
+              <label class="toggle">
+                <input type="checkbox" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">开机自动启动</div>
+              <label class="toggle">
+                <input type="checkbox">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <footer class="footer-actions">
+          <button class="btn-reset" id="reset-settings">恢复默认</button>
+          <button class="btn-save" id="save-settings">保存设置</button>
+        </footer>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

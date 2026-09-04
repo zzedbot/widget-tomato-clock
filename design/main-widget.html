@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>番茄伴侣 · Windows 桌面挂件</title>
+  <meta name="view-transition" content="same-origin">
+  <link rel="prefetch" href="timer-states.html" as="document">
+  <link rel="prefetch" href="settings.html" as="document">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+  <style>
+    :root { color-scheme: light; }
+    @view-transition { navigation: auto; }
+    ::view-transition-old(main-content) { animation: 0.25s ease-out both fade-out; }
+    ::view-transition-new(main-content) { animation: 0.25s ease-in 0.1s both fade-in; }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .layout { view-transition-name: main-content; }
+    .intro { view-transition-name: brand; }
+    * { box-sizing: border-box; }
+    button { font: inherit; }
+    .scene { min-height: 100vh; position: relative; overflow: hidden; background: #f3eee8; color: #3b2a24; font-family: "Segoe UI Variable", "Segoe UI", sans-serif; }
+    .wash { position: absolute; border-radius: 999px; filter: blur(4px); opacity: .78; }
+    .wash.one { width: 430px; height: 430px; left: -150px; top: -160px; background: #ffd8c7; }
+    .wash.two { width: 360px; height: 360px; right: -120px; bottom: -150px; background: #fff7ed; }
+    .layout { position: relative; z-index: 1; width: min(1110px, calc(100vw - 80px)); min-height: 100vh; margin: 0 auto; display: grid; grid-template-columns: 310px 470px 250px; gap: 36px; align-items: center; }
+    .intro { align-self: center; }
+    .kicker { display: inline-flex; align-items: center; gap: 8px; color: #d9483b; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .kicker::before { content: ""; width: 24px; height: 2px; border-radius: 999px; background: #d9483b; }
+    h1 { margin: 18px 0 0; font-size: 42px; line-height: 1.05; letter-spacing: -.045em; font-weight: 680; }
+    .lead { margin: 16px 0 0; color: #80655c; font-size: 15px; line-height: 1.65; max-width: 285px; }
+    .principles { margin-top: 30px; display: grid; gap: 11px; }
+    .principle { display: flex; align-items: center; gap: 10px; color: #634b43; font-size: 13px; }
+    .principle i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 9px; background: #fff7ed; color: #d9483b; box-shadow: 0 4px 14px rgba(116,54,38,.08); font-style: normal; }
+
+    .hero-wrap { position: relative; height: 440px; display: grid; place-items: center; }
+    .desktop-shadow { position: absolute; width: 380px; height: 40px; border-radius: 50%; background: rgba(116,54,38,.13); filter: blur(18px); bottom: 72px; }
+    .widget { width: 392px; height: 270px; border-radius: 24px; padding: 17px 18px 18px; position: relative; display: flex; flex-direction: column; overflow: hidden; background: rgba(255,247,237,.96); border: 1px solid rgba(255,255,255,.88); box-shadow: 0 30px 65px rgba(116,54,38,.18), 0 8px 22px rgba(116,54,38,.10), inset 0 1px 0 #fff; }
+    .drag-zone { position: absolute; left: 50%; top: 8px; width: 38px; height: 4px; transform: translateX(-50%); border-radius: 999px; background: rgba(128,101,92,.20); }
+    .top { height: 33px; display: flex; align-items: center; justify-content: space-between; }
+    .mode { display: inline-flex; align-items: center; gap: 8px; color: #d9483b; font-size: 12px; font-weight: 700; }
+    .mode-dot { width: 8px; height: 8px; border-radius: 50%; background: #d9483b; box-shadow: 0 0 0 4px rgba(217,72,59,.10); }
+    .window-tools { display: flex; align-items: center; gap: 2px; }
+    .icon-btn { width: 32px; height: 32px; border: 0; border-radius: 10px; display: grid; place-items: center; background: transparent; color: #80655c; }
+    .icon-btn.active { color: #d9483b; background: #ffd8c7; }
+    .content { flex: 1; display: grid; grid-template-columns: 144px 1fr; gap: 19px; align-items: center; }
+    .timer { position: relative; width: 138px; height: 138px; display: grid; place-items: center; }
+    .ring { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(#d9483b 0 51%, #ffd8c7 51% 100%); box-shadow: 0 10px 25px rgba(217,72,59,.13); }
+    .ring::after { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: #fff7ed; }
+    .timer-copy { position: relative; z-index: 2; text-align: center; }
+    .time { display: block; font-size: 38px; line-height: 1; font-weight: 690; letter-spacing: -.065em; font-variant-numeric: tabular-nums; }
+    .cycle { display: block; margin-top: 7px; color: #80655c; font-size: 11px; }
+    .mascot { position: absolute; z-index: 3; width: 48px; height: 42px; right: -4px; bottom: 4px; border-radius: 49% 49% 45% 45%; background: #d9483b; box-shadow: 0 7px 14px rgba(217,72,59,.22); transform: rotate(5deg); }
+    .leaf { position: absolute; width: 26px; height: 9px; left: 9px; top: -4px; border-radius: 60% 25% 60% 25%; background: #2f3a2f; transform: rotate(-10deg); }
+    .stem { position: absolute; width: 5px; height: 9px; left: 23px; top: -7px; border-radius: 4px; background: #2f3a2f; transform: rotate(12deg); }
+    .eye { position: absolute; width: 3px; height: 6px; top: 17px; border-radius: 50%; background: #3b2a24; }
+    .eye.l { left: 14px; } .eye.r { right: 14px; }
+    .mouth { position: absolute; width: 10px; height: 5px; left: 19px; top: 27px; border-bottom: 2px solid #3b2a24; border-radius: 0 0 9px 9px; }
+    .task-panel { min-width: 0; padding-top: 2px; }
+    .task-label { color: #80655c; font-size: 11px; }
+    .task { margin-top: 4px; display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 650; }
+    .task span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task iconify-icon { color: #80655c; flex: 0 0 auto; }
+    .sessions-title { margin-top: 20px; color: #80655c; font-size: 11px; }
+    .sessions { margin-top: 8px; display: flex; align-items: center; gap: 7px; }
+    .session { width: 26px; height: 7px; border-radius: 999px; background: #ffd8c7; }
+    .session.done { background: #d9483b; }
+    .session-count { margin-left: 3px; color: #80655c; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .actions { display: grid; grid-template-columns: 1fr 42px 42px; gap: 9px; }
+    .primary { height: 42px; border: 0; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #d9483b; color: #fff7ed; font-size: 13px; font-weight: 700; box-shadow: 0 7px 18px rgba(217,72,59,.24); }
+    .secondary { height: 42px; border: 0; border-radius: 14px; display: grid; place-items: center; background: #ffd8c7; color: #7c4037; }
+
+    .callout { position: absolute; display: flex; align-items: center; gap: 8px; color: #80655c; font-size: 11px; white-space: nowrap; }
+    .callout::before { content: ""; width: 40px; height: 1px; background: rgba(128,101,92,.38); }
+    .callout.drag { top: 56px; left: 252px; }
+    .callout.pin { right: -18px; top: 102px; flex-direction: row-reverse; }
+    .callout.pin::before { width: 34px; }
+
+    .side { display: flex; flex-direction: column; gap: 26px; }
+    .side-title { color: #80655c; font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
+    .compact { margin-top: 9px; width: 230px; height: 74px; border-radius: 18px; background: rgba(255,247,237,.97); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 15px 34px rgba(116,54,38,.14); padding: 10px 12px; display: grid; grid-template-columns: 43px 1fr 32px; gap: 10px; align-items: center; }
+    .mini-tomato { width: 38px; height: 34px; border-radius: 48% 48% 45% 45%; background: #d9483b; position: relative; }
+    .mini-tomato::before { content: ""; position: absolute; width: 20px; height: 7px; left: 9px; top: -3px; border-radius: 50%; background: #2f3a2f; transform: rotate(-8deg); }
+    .mini-copy strong { display: block; font-size: 18px; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+    .mini-copy span { display: block; margin-top: 5px; color: #80655c; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mini-play { width: 32px; height: 32px; border: 0; border-radius: 11px; display: grid; place-items: center; background: #d9483b; color: #fff7ed; }
+    .states { display: grid; gap: 10px; margin-top: 9px; }
+    .state { width: 230px; border-radius: 14px; padding: 10px 12px; background: rgba(255,247,237,.68); border: 1px solid rgba(128,101,92,.11); display: flex; align-items: center; justify-content: space-between; }
+    .state-name { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650; }
+    .state-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .state-dot.focus { background: #d9483b; }
+    .state-dot.break { background: #2f3a2f; }
+    .state small { color: #80655c; font-size: 10px; }
+    .note { color: #80655c; font-size: 11px; line-height: 1.55; max-width: 225px; }
+    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; padding: 45px 0; } .intro, .side { width: 392px; margin: 0 auto; } .hero-wrap { height: 390px; } }
+  </style>
+</head>
+<body>
+  <div class="scene">
+    <div class="wash one"></div><div class="wash two"></div>
+    <main class="layout">
+      <section class="intro">
+        <div class="kicker">Selected direction B</div>
+        <h1>一个安静陪你<br />专注的小番茄</h1>
+        <p class="lead">保留角色的温度，但把计时、任务与启动操作放在第一位。它是桌面工具，也是不过分打扰的陪伴。</p>
+        <div class="principles">
+          <div class="principle"><i><iconify-icon icon="solar:eye-linear" width="15"></iconify-icon></i>一眼看清剩余时间</div>
+          <div class="principle"><i><iconify-icon icon="solar:mouse-minimalistic-linear" width="15"></iconify-icon></i>一次点击开始专注</div>
+          <div class="principle"><i><iconify-icon icon="solar:volume-cross-linear" width="15"></iconify-icon></i>常驻桌面但保持安静</div>
+        </div>
+      </section>
+
+      <section class="hero-wrap" aria-label="番茄钟桌面挂件主设计">
+        <div class="desktop-shadow"></div>
+        <div class="callout drag">顶部空白区域可拖拽</div>
+        <div class="callout pin">一键保持置顶</div>
+        <article class="widget">
+          <div class="drag-zone"></div>
+          <div class="top">
+            <div class="mode"><span class="mode-dot"></span>专注中</div>
+            <div class="window-tools">
+              <button class="icon-btn active" aria-label="保持置顶"><iconify-icon icon="solar:pin-bold" width="17"></iconify-icon></button>
+              <a href="settings.html" id="nav-settings-btn" class="icon-btn" aria-label="设置"><iconify-icon icon="solar:settings-linear" width="18"></iconify-icon></a>
+            </div>
+          </div>
+          <div class="content">
+            <div class="timer">
+              <div class="ring"></div>
+              <div class="timer-copy"><a href="timer-states.html" id="nav-timer-overlay" class="time">25:00</a><span class="cycle">第 3 个番茄</span></div>
+              <div class="mascot" aria-hidden="true"><span class="stem"></span><span class="leaf"></span><span class="eye l"></span><span class="eye r"></span><span class="mouth"></span></div>
+            </div>
+            <div class="task-panel">
+              <div class="task-label">这一轮要完成</div>
+              <div class="task"><span>整理项目方案</span><iconify-icon icon="solar:pen-2-linear" width="14"></iconify-icon></div>
+              <div class="sessions-title">今日进度</div>
+              <div class="sessions"><span class="session done"></span><span class="session done"></span><span class="session"></span><span class="session"></span><span class="session-count">2 / 4</span></div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary"><iconify-icon icon="solar:play-bold" width="16"></iconify-icon>开始专注</button>
+            <button class="secondary" aria-label="重新计时"><iconify-icon icon="solar:restart-linear" width="19"></iconify-icon></button>
+            <button class="secondary" aria-label="跳过本轮"><iconify-icon icon="solar:skip-next-linear" width="20"></iconify-icon></button>
+          </div>
+        </article>
+      </section>
+
+      <aside class="side">
+        <section>
+          <div class="side-title">专注时可收起</div>
+          <div class="compact">
+            <div class="mini-tomato"></div>
+            <div class="mini-copy"><strong>24:38</strong><span>整理项目方案</span></div>
+            <button class="mini-play" aria-label="暂停"><iconify-icon icon="solar:pause-bold" width="16"></iconify-icon></button>
+          </div>
+        </section>
+        <section>
+          <div class="side-title">快速跳转</div>
+        <div class="states mb-6">
+          <a href="timer-states.html" id="nav-status-link" class="state hover:bg-orange-100 transition-colors cursor-pointer">
+            <div class="state-name"><iconify-icon icon="solar:chart-square-linear" width="14" class="text-orange-500"></iconify-icon>计时状态总览</div>
+            <iconify-icon icon="solar:alt-arrow-right-linear" width="12"></iconify-icon>
+          </a>
+          <a href="settings.html" id="nav-config-link" class="state hover:bg-orange-100 transition-colors cursor-pointer">
+            <div class="state-name"><iconify-icon icon="solar:settings-linear" width="14" class="text-orange-500"></iconify-icon>设置面板</div>
+            <iconify-icon icon="solar:alt-arrow-right-linear" width="12"></iconify-icon>
+          </a>
+        </div>
+        <div class="side-title">状态颜色</div>
+          <div class="states">
+            <div class="state"><div class="state-name"><span class="state-dot focus"></span>专注</div><small>番茄红</small></div>
+            <div class="state"><div class="state-name"><span class="state-dot break"></span>休息</div><small>叶片绿</small></div>
+          </div>
+        </section>
+        <p class="note">角色只在开始、完成和休息切换时做轻微反馈；倒计时期间保持静止，减少视觉干扰。</p>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
