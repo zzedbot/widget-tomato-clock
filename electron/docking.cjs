@@ -6,6 +6,13 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function containsPoint(bounds, point) {
+  return point.x >= bounds.x &&
+    point.x < bounds.x + bounds.width &&
+    point.y >= bounds.y &&
+    point.y < bounds.y + bounds.height;
+}
+
 function findDockEdge(bounds, workArea, threshold = EDGE_THRESHOLD) {
   // A positive gap means the window is inside the work area. Zero means the
   // edges touch. A negative gap means that window edge is already outside.
@@ -47,4 +54,4 @@ function expandedBounds(edge, current, workArea, size) {
   return { x: clamp(Math.round(centerX - size.width / 2), workArea.x, maxX), y: maxY, ...size };
 }
 
-module.exports = { EDGE_THRESHOLD, collapsedBounds, expandedBounds, findDockEdge };
+module.exports = { EDGE_THRESHOLD, collapsedBounds, containsPoint, expandedBounds, findDockEdge };

@@ -48,6 +48,12 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await expect(page.locator(".widget")).toBeVisible();
     await expectWindowSize(electronApp, 392, 270);
 
+    // A transient mouseleave during resize must not collapse a panel while
+    // the real cursor is still inside it.
+    await page.waitForTimeout(650);
+    await expect(page.locator(".widget")).toBeVisible();
+    await expectWindowSize(electronApp, 392, 270);
+
     await page.mouse.move(180, 130);
     await page.mouse.move(520, 400);
     await expectWindowSize(electronApp, 62, 62);

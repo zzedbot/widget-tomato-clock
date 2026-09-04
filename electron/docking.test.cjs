@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { collapsedBounds, expandedBounds, findDockEdge } = require("./docking.cjs");
+const { collapsedBounds, containsPoint, expandedBounds, findDockEdge } = require("./docking.cjs");
 
 const workArea = { x: 0, y: 0, width: 1920, height: 1040 };
 
@@ -22,6 +22,14 @@ test("docks when any window edge has crossed outside the work area", () => {
 test("uses the deepest crossing to resolve a corner", () => {
   assert.equal(findDockEdge({ x: -80, y: -20, width: 392, height: 270 }, workArea), "left");
   assert.equal(findDockEdge({ x: -10, y: -70, width: 392, height: 270 }, workArea), "top");
+});
+
+test("checks the real cursor against the expanded window bounds", () => {
+  const bounds = { x: 100, y: 200, width: 392, height: 270 };
+  assert.equal(containsPoint(bounds, { x: 100, y: 200 }), true);
+  assert.equal(containsPoint(bounds, { x: 491, y: 469 }), true);
+  assert.equal(containsPoint(bounds, { x: 492, y: 300 }), false);
+  assert.equal(containsPoint(bounds, { x: 300, y: 470 }), false);
 });
 
 test("collapses to a visible tomato at the right edge", () => {

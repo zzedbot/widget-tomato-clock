@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, Notification, screen, Tray } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
-const { collapsedBounds, expandedBounds, findDockEdge } = require("./docking.cjs");
+const { collapsedBounds, containsPoint, expandedBounds, findDockEdge } = require("./docking.cjs");
 
 if (process.env.TOMATO_E2E_USER_DATA) {
   app.setPath("userData", process.env.TOMATO_E2E_USER_DATA);
@@ -273,7 +273,13 @@ ipcMain.handle("window:expand-edge", () => expandFromEdge());
 ipcMain.handle("window:collapse-edge", () => {
   if (!dockedEdge) return;
   clearTimeout(collapseTimer);
-  collapseTimer = setTimeout(() => collapseToEdge(), 420);
+  collapseTimer = setTimeout(() => {
+    if (!mainWindow || !dockedEdge || dockCollapsed) return;
+    // Resizing and swapping the edge view can emit a transient mouseleave.
+    // Verify the real system cursor position before committing the collapse.
+    if (containsPoint(mainWindow.getBounds(), screen.getCursorScreenPoint())) return;
+    collapseToEdge();
+  }, 420);
 });
 
 ipcMain.handle("window:set-always-on-top", (_event, value) => {
