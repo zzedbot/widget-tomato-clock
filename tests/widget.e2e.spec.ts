@@ -22,9 +22,12 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await page.waitForSelector(".widget");
 
     await expectWindowSize(electronApp, 392, 270);
+    await expect(page.locator(".system-clock")).toBeVisible();
+    await expect(page.locator(".system-clock strong")).toHaveText(/^\d{2}:\d{2}$/);
     await page.getByRole("button", { name: "开始专注" }).click();
     await expect(page.locator(".mini-widget")).toBeVisible();
     await expectWindowSize(electronApp, 300, 86);
+    await expect(page.locator(".mini-meta time")).toHaveText(/^\d{2}\/\d{2} · \d{2}:\d{2}$/);
 
     await page.locator(".mini-widget").dblclick();
     await expect(page.locator(".widget")).toBeVisible();

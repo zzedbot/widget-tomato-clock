@@ -55,6 +55,25 @@ function phaseLabel(state: TimerState): string {
   return state.mode === "focus" ? "专注中" : `${modeLabel(state.mode)}中`;
 }
 
+function formatSystemClock(timestamp: number) {
+  const value = new Date(timestamp);
+  const date = new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    weekday: "short"
+  }).format(value);
+  const time = new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).format(value);
+  const compactDate = new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit"
+  }).format(value);
+  return { date, time, compactDate, iso: value.toISOString() };
+}
+
 function playBell(volume: number) {
   try {
     const context = new AudioContext();
@@ -170,6 +189,7 @@ export default function App() {
   const edgeHoverReadyAt = useRef(0);
   const remaining = remainingAt(timer, now);
   const progress = Math.min(1, Math.max(0, 1 - remaining / timer.durationMs));
+  const systemClock = formatSystemClock(now);
 
   const persist = useCallback((next: TimerState) => {
     setTimer(next);
@@ -297,7 +317,12 @@ export default function App() {
         <TomatoMascot mood={mood} />
         <div className="mini-copy">
           <strong>{formatTime(remaining)}</strong>
-          <span>{timer.task.trim() || phaseLabel(timer)}</span>
+          <div className="mini-meta">
+            <span className="mini-task">{timer.task.trim() || phaseLabel(timer)}</span>
+            <time dateTime={systemClock.iso} aria-label={`系统日期时间 ${systemClock.date} ${systemClock.time}`}>
+              {systemClock.compactDate} · {systemClock.time}
+            </time>
+          </div>
         </div>
         <button className="mini-action no-drag" type="button" aria-label={timer.phase === "running" ? "暂停" : "继续"} onClick={toggleTimer}>
           {timer.phase === "running" ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
@@ -312,6 +337,10 @@ export default function App() {
       <div className="drag-handle" aria-hidden="true" />
       <header className="widget-header">
         <div className="status"><span className="status-dot" />{phaseLabel(timer)}</div>
+        <time className="system-clock" dateTime={systemClock.iso} aria-label={`系统日期时间 ${systemClock.date} ${systemClock.time}`}>
+          <span>{systemClock.date}</span>
+          <strong>{systemClock.time}</strong>
+        </time>
         <div className="window-actions no-drag">
           <button className={`icon-button ${settings.alwaysOnTop ? "active" : ""}`} type="button" aria-label={settings.alwaysOnTop ? "取消置顶" : "保持置顶"} onClick={() => setSettings((value) => ({ ...value, alwaysOnTop: !value.alwaysOnTop }))}>
             {settings.alwaysOnTop ? <Pin size={16} fill="currentColor" /> : <PinOff size={16} />}
