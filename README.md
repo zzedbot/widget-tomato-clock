@@ -9,6 +9,10 @@ Windows 番茄工作法桌面挂件设计原型，采用温暖、克制的番茄
 - [设置面板](design/settings.html)
 - [设计系统](design/design-system.md)
 
+## 产品文档
+
+- [需求说明](docs/requirements.md)
+
 HTML 文件可以直接在浏览器中打开。页面使用 Tailwind CDN 与 Iconify 图标，因此在线查看时效果最完整。
 
 ## 在线画布
