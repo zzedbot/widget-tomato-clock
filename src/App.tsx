@@ -264,6 +264,9 @@ export default function App() {
   const remaining = remainingAt(timer, now);
   const progress = Math.min(1, Math.max(0, 1 - remaining / timer.durationMs));
   const systemClock = formatSystemClock(now);
+  const selectedTodos = todos.selectedIds
+    .map((id) => todos.todos.find((todo) => todo.id === id && todo.status === "open"))
+    .filter((todo): todo is NonNullable<typeof todo> => Boolean(todo));
   const activeTodo = todos.todos.find((todo) => todo.id === todos.activeTodoId && todo.status === "open");
   const activeLong = todos.todos.find((todo) => todo.id === todos.activeLongId && todo.status === "open");
 
@@ -452,7 +455,7 @@ export default function App() {
         <div className="mini-copy">
           <strong>{formatTime(remaining)}</strong>
           <div className="mini-meta">
-            <span className="mini-task">{activeTodo?.title || activeLong?.title || phaseLabel(timer)}</span>
+            <span className="mini-task" title={selectedTodos.map((todo) => todo.title).join("、")}>{activeTodo?.title || activeLong?.title || phaseLabel(timer)}{selectedTodos.length > 1 ? ` · 本轮 ${selectedTodos.length} 项` : ""}</span>
             <time dateTime={systemClock.iso} aria-label={`系统日期时间 ${systemClock.date} ${systemClock.time}`}>
               {systemClock.compactDate} · {systemClock.time}
             </time>
@@ -500,6 +503,20 @@ export default function App() {
           </div>
           <div className="active-task-line"><strong>{activeTodo?.title || (todos.selectedIds.length ? "选择当前执行任务" : "开始前选择待办")}</strong>{activeTodo && <button onClick={() => punch(activeTodo.id)}><Check size={12} />Punch</button>}</div>
           {activeTodo && <small className="active-elapsed">本轮累计 {formatElapsed(elapsedForTodo(todos, activeTodo.id, now))}</small>}
+          {selectedTodos.length > 0 && <div className="session-queue">
+            <div className="session-queue-label"><span>本轮待办</span><small>{selectedTodos.length} 项</small></div>
+            <div className="session-queue-items" onWheel={(event) => { event.currentTarget.scrollLeft += event.deltaY; }}>
+              {selectedTodos.map((todo) => <button
+                key={todo.id}
+                type="button"
+                className={`${todo.id === activeTodo?.id ? "active" : ""} ${todo.kind}`}
+                aria-current={todo.id === activeTodo?.id ? "true" : undefined}
+                aria-label={`${todo.id === activeTodo?.id ? "当前执行" : "切换到"}${todo.title}`}
+                title={todo.title}
+                onClick={() => activateTodo(todo.id)}
+              >{todo.kind === "long" ? <Target size={10} /> : <ListTodo size={10} />}<span>{todo.title}</span></button>)}
+            </div>
+          </div>}
           <span className="progress-label">今日进度</span>
           <div className="session-progress" aria-label={`今日完成 ${timer.completedToday} 个番茄`}>
             {[0, 1, 2, 3].map((index) => <i key={index} className={index < timer.completedToday % 4 ? "done" : ""} />)}

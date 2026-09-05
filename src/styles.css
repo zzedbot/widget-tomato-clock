@@ -209,6 +209,17 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .active-task-line button { height: 25px; display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border: 0; border-radius: 8px; background: var(--tomato); color: white; font-size: 9px; font-weight: 750; cursor: pointer; }
 .active-elapsed { display: block; margin-top: -1px; color: var(--muted); font-size: 9px; }
 .active-task-line + .active-elapsed + .progress-label { margin-top: 10px; }
+.session-queue { margin-top: 6px; }
+.session-queue-label { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 8px; }
+.session-queue-label small { font-size: 8px; }
+.session-queue-items { display: flex; gap: 5px; margin-top: 3px; overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.session-queue-items::-webkit-scrollbar { display: none; }
+.session-queue-items button { max-width: 112px; height: 21px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid rgba(125,91,76,.12); border-radius: 7px; background: rgba(255,255,255,.52); color: var(--muted); font-size: 8px; cursor: pointer; transition: border-color .16s ease-out, background .16s ease-out, color .16s ease-out, transform .16s ease-out; }
+.session-queue-items button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-queue-items button.long { color: var(--leaf); }
+.session-queue-items button:hover { border-color: rgba(217,72,59,.28); color: var(--brown); transform: translateY(-1px); }
+.session-queue-items button.active { border-color: color-mix(in srgb, var(--accent) 38%, transparent); background: var(--peach); color: var(--tomato); font-weight: 750; }
+.session-queue + .progress-label { margin-top: 7px; }
 
 .widget-actions { display: grid; grid-template-columns: 1fr 42px 42px; gap: 9px; }
 .primary-action, .primary-button {

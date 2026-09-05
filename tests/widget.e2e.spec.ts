@@ -29,6 +29,8 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await expectWindowSize(electronApp, 460, 710);
     await page.getByPlaceholder("新建短期待办").fill("验证边缘停靠");
     await page.locator(".todo-create-row").getByRole("button", { name: "添加" }).click();
+    await page.getByPlaceholder("新建短期待办").fill("检查本轮队列");
+    await page.locator(".todo-create-row").getByRole("button", { name: "添加" }).click();
     await page.getByRole("button", { name: "完成选择" }).click();
     await expect(page.locator(".widget")).toBeVisible();
     await page.getByRole("button", { name: "开始专注", exact: true }).click();
@@ -38,6 +40,11 @@ test("start collapses to mini and edge docking expands on hover", async () => {
 
     await page.locator(".mini-widget").dblclick();
     await expect(page.locator(".widget")).toBeVisible();
+    await expect(page.locator(".session-queue")).toContainText("验证边缘停靠");
+    await expect(page.locator(".session-queue")).toContainText("检查本轮队列");
+    await page.getByRole("button", { name: "切换到检查本轮队列" }).click();
+    await expect(page.getByRole("button", { name: "当前执行检查本轮队列" })).toHaveAttribute("aria-current", "true");
+    await page.getByRole("button", { name: "切换到验证边缘停靠" }).click();
 
     const expectedDockTop = await electronApp.evaluate(({ BrowserWindow, screen }) => {
       const window = BrowserWindow.getAllWindows()[0];

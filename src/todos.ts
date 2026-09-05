@@ -74,7 +74,13 @@ export function endTodoSession(state: TodoState, now = Date.now()): TodoState { 
 
 export function switchActiveTodo(state: TodoState, todoId: string, now: number, segmentId: string, tracking: boolean): TodoState {
   if (!state.selectedIds.includes(todoId)) return state;
-  let next: TodoState = { ...closeOpenSegment(state, now), activeTodoId: todoId };
+  if (state.activeTodoId === todoId) return state;
+  const todo = state.todos.find((item) => item.id === todoId);
+  let next: TodoState = {
+    ...closeOpenSegment(state, now),
+    activeTodoId: todoId,
+    activeLongId: todo?.kind === "long" ? todoId : state.activeLongId
+  };
   if (tracking) next = openSegment(next, now, segmentId);
   return next;
 }
