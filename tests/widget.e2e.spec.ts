@@ -24,7 +24,14 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await expectWindowSize(electronApp, 392, 270);
     await expect(page.locator(".system-clock")).toBeVisible();
     await expect(page.locator(".system-clock strong")).toHaveText(/^\d{2}:\d{2}$/);
-    await page.getByRole("button", { name: "开始专注" }).click();
+    await page.getByRole("button", { name: "选择待办开始" }).click();
+    await expect(page.locator(".todo-panel")).toBeVisible();
+    await expectWindowSize(electronApp, 460, 710);
+    await page.getByPlaceholder("新建短期待办").fill("验证边缘停靠");
+    await page.locator(".todo-create-row").getByRole("button", { name: "添加" }).click();
+    await page.getByRole("button", { name: "完成选择" }).click();
+    await expect(page.locator(".widget")).toBeVisible();
+    await page.getByRole("button", { name: "开始专注", exact: true }).click();
     await expect(page.locator(".mini-widget")).toBeVisible();
     await expectWindowSize(electronApp, 300, 86);
     await expect(page.locator(".mini-meta time")).toHaveText(/^\d{2}\/\d{2} · \d{2}:\d{2}$/);
@@ -85,6 +92,13 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await page.mouse.move(520, 400);
     await page.waitForTimeout(650);
     await expectWindowSize(electronApp, 392, 270);
+
+    await page.getByRole("button", { name: "Punch", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("已 Punch · 验证边缘停靠");
+    await expect.poll(() => page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("tomato-clock:todos:v1") || "{}");
+      return state.punches?.length || 0;
+    })).toBe(1);
   } finally {
     await electronApp.close();
     rmSync(userData, { recursive: true, force: true });

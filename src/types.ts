@@ -1,6 +1,46 @@
 export type TimerMode = "focus" | "shortBreak" | "longBreak";
 export type TimerPhase = "idle" | "running" | "paused" | "completed";
-export type ViewMode = "main" | "mini" | "settings" | "edge";
+export type ViewMode = "main" | "mini" | "settings" | "todos" | "edge";
+
+export type TodoKind = "long" | "short";
+export type TodoStatus = "open" | "completed";
+
+export interface Todo {
+  id: string;
+  kind: TodoKind;
+  title: string;
+  status: TodoStatus;
+  parentLongId: string | null;
+  createdAt: number;
+  completedAt: number | null;
+}
+
+export interface TimeSegment {
+  id: string;
+  sessionId: string;
+  todoId: string;
+  longTodoId: string | null;
+  startedAt: number;
+  endedAt: number | null;
+}
+
+export interface PunchRecord {
+  id: string;
+  todoId: string;
+  sessionId: string | null;
+  punchedAt: number;
+  elapsedMs: number;
+}
+
+export interface TodoState {
+  todos: Todo[];
+  selectedIds: string[];
+  activeTodoId: string | null;
+  activeLongId: string | null;
+  sessionId: string | null;
+  segments: TimeSegment[];
+  punches: PunchRecord[];
+}
 
 export interface Settings {
   focusMinutes: number;

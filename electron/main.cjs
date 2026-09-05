@@ -11,6 +11,7 @@ const VIEW_SIZES = {
   main: { width: 392, height: 270 },
   mini: { width: 300, height: 86 },
   settings: { width: 430, height: 650 },
+  todos: { width: 460, height: 710 },
   edge: { width: 62, height: 62 }
 };
 
@@ -243,7 +244,7 @@ app.on("before-quit", () => {
 ipcMain.handle("window:set-view", (_event, view) => {
   const size = VIEW_SIZES[view] || VIEW_SIZES.main;
   if (!mainWindow) return;
-  if (view === "settings" || view === "mini") {
+  if (view === "settings" || view === "todos" || view === "mini") {
     dockedEdge = null;
     dockCollapsed = false;
     expandedEdgeBounds = null;

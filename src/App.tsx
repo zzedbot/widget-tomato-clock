@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
+  Check,
   ChevronLeft,
   CirclePlay,
+  Clock3,
   Coffee,
+  ListTodo,
   Minus,
   Pause,
   Pin,
@@ -13,6 +16,7 @@ import {
   RotateCcw,
   Settings as SettingsIcon,
   SkipForward,
+  Target,
   Volume2,
   X
 } from "lucide-react";
@@ -30,10 +34,22 @@ import {
   skipTimer,
   startTimer
 } from "./timer";
-import type { Settings, TimerMode, TimerState, ViewMode } from "./types";
+import { addTodo, elapsedForLongTodo, elapsedForTodo, endTodoSession, EMPTY_TODO_STATE, normalizeTodoState, pauseTodoSession, punchTodo, startTodoSession, switchActiveTodo, switchLongTodo, toggleTodoSelection } from "./todos";
+import type { Settings, TimerMode, TimerState, TodoKind, TodoState, ViewMode } from "./types";
 
 const SETTINGS_KEY = "tomato-clock:settings:v1";
 const TIMER_KEY = "tomato-clock:timer:v1";
+const TODOS_KEY = "tomato-clock:todos:v1";
+
+function makeId(prefix: string): string {
+  return `${prefix}:${crypto.randomUUID()}`;
+}
+
+function formatElapsed(milliseconds: number): string {
+  const minutes = Math.floor(Math.max(0, milliseconds) / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -179,17 +195,83 @@ function SettingsPanel({ value, onSave, onCancel }: { value: Settings; onSave: (
   );
 }
 
+function TodoPanel({ state, now, running, notice, onChange, onAdd, onActive, onLong, onPunch, onClose }: {
+  state: TodoState; now: number; running: boolean;
+  notice: string | null;
+  onChange: (id: string) => void; onAdd: (kind: TodoKind, title: string) => void;
+  onActive: (id: string) => void; onLong: (id: string) => void; onPunch: (id: string) => void; onClose: () => void;
+}) {
+  const [kind, setKind] = useState<TodoKind>("short");
+  const [title, setTitle] = useState("");
+  const open = state.todos.filter((todo) => todo.status === "open");
+  const submit = () => { if (title.trim()) { onAdd(kind, title); setTitle(""); } };
+  return (
+    <section className="todo-panel">
+      <header className="todo-header drag-region">
+        <button className="text-button no-drag" type="button" onClick={onClose}><ChevronLeft size={18} />本轮待办</button>
+        <span>{state.selectedIds.length} 项已选择</span>
+      </header>
+      {notice && <div className="punch-notice" role="status"><Check size={14} />{notice}</div>}
+      <div className="todo-summary"><Clock3 size={17} /><div><strong>{running ? "专注进行中" : "开始前选择任务"}</strong><span>同一时刻仅一个任务累计时间</span></div></div>
+      <div className="todo-create no-drag">
+        <div className="todo-kind-switch">
+          <button className={kind === "short" ? "active" : ""} onClick={() => setKind("short")}>短期待办</button>
+          <button className={kind === "long" ? "active" : ""} onClick={() => setKind("long")}>长期待办</button>
+        </div>
+        <div className="todo-create-row"><input value={title} maxLength={80} placeholder={`新建${kind === "long" ? "长期目标" : "短期待办"}`} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") submit(); }} /><button onClick={submit}><Plus size={16} />添加</button></div>
+      </div>
+      <div className="todo-scroll no-drag">
+        {(["long", "short"] as TodoKind[]).map((sectionKind) => (
+          <section className="todo-section" key={sectionKind}>
+            <div className="todo-section-title"><span>{sectionKind === "long" ? <Target size={14} /> : <ListTodo size={14} />}{sectionKind === "long" ? "长期待办" : "短期待办"}</span><small>{sectionKind === "long" ? "跨天目标" : "几分钟到几小时"}</small></div>
+            <div className="todo-list">
+              {open.filter((todo) => todo.kind === sectionKind).map((todo) => {
+                const selected = state.selectedIds.includes(todo.id);
+                const active = state.activeTodoId === todo.id;
+                const currentLong = state.activeLongId === todo.id;
+                const elapsed = todo.kind === "long" ? elapsedForLongTodo(state, todo.id, now) : elapsedForTodo(state, todo.id, now);
+                return <article className={`todo-row ${selected ? "selected" : ""} ${active ? "active-todo" : ""}`} key={todo.id}>
+                  <button className="todo-check" disabled={running && active} aria-label={selected ? `取消选择${todo.title}` : `选择${todo.title}`} onClick={() => onChange(todo.id)}>{selected && <Check size={13} />}</button>
+                  <div className="todo-row-copy"><strong>{todo.title}</strong><span>累计 {formatElapsed(elapsed)}{active ? " · 正在计时" : ""}</span></div>
+                  <div className="todo-row-actions">
+                    {todo.kind === "long" ? <button className={currentLong ? "current" : ""} onClick={() => onLong(todo.id)}>{currentLong ? "当前目标" : "设为目标"}</button> : selected && <button className={active ? "current" : ""} onClick={() => onActive(todo.id)}>{active ? "执行中" : "执行"}</button>}
+                    <button className="punch-small" onClick={() => onPunch(todo.id)}>Punch</button>
+                  </div>
+                </article>;
+              })}
+              {!open.some((todo) => todo.kind === sectionKind) && <p className="todo-empty">还没有{sectionKind === "long" ? "长期目标" : "短期待办"}</p>}
+            </div>
+          </section>
+        ))}
+      </div>
+      <footer className="todo-footer"><span>至少选择 1 项才能开始专注</span><button onClick={onClose}>{running ? "返回计时" : state.selectedIds.length ? "完成选择" : "稍后再说"}</button></footer>
+    </section>
+  );
+}
+
 export default function App() {
   const [settings, setSettings] = useState<Settings>(() => readJson(SETTINGS_KEY, DEFAULT_SETTINGS));
   const [timer, setTimer] = useState<TimerState>(() => normalizeForToday(readJson(TIMER_KEY, createInitialState())));
+  const [todos, setTodos] = useState<TodoState>(() => normalizeTodoState(readJson(TODOS_KEY, EMPTY_TODO_STATE)));
   const [view, setView] = useState<ViewMode>("main");
   const [edgeDocked, setEdgeDocked] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [punchNotice, setPunchNotice] = useState<string | null>(null);
   const completionBusy = useRef(false);
+  const punchNoticeTimer = useRef<number | null>(null);
+  const todosRef = useRef(todos);
   const edgeHoverReadyAt = useRef(0);
   const remaining = remainingAt(timer, now);
   const progress = Math.min(1, Math.max(0, 1 - remaining / timer.durationMs));
   const systemClock = formatSystemClock(now);
+  const activeTodo = todos.todos.find((todo) => todo.id === todos.activeTodoId && todo.status === "open");
+  const activeLong = todos.todos.find((todo) => todo.id === todos.activeLongId && todo.status === "open");
+
+  const persistTodos = useCallback((next: TodoState) => {
+    todosRef.current = next;
+    setTodos(next);
+    localStorage.setItem(TODOS_KEY, JSON.stringify(next));
+  }, []);
 
   const persist = useCallback((next: TimerState) => {
     setTimer(next);
@@ -205,14 +287,21 @@ export default function App() {
 
     const shouldAutoStart = focusFinished ? settings.autoStartBreak : settings.autoStartFocus;
     if (shouldAutoStart) {
-      const started = startTimer(prepareNext(next, settings));
+      const ready = prepareNext(next, settings);
+      if (ready.mode === "focus" && todosRef.current.selectedIds.length === 0) {
+        persist(ready);
+        setView("todos");
+        return;
+      }
+      const started = startTimer(ready);
+      if (started.mode === "focus") persistTodos(startTodoSession(todosRef.current, Date.now(), makeId("session"), makeId("segment")));
       persist(started);
       if (started.mode === "focus" && settings.autoCollapse && !edgeDocked) setView("mini");
     } else {
       persist(next);
       setView("main");
     }
-  }, [edgeDocked, persist, settings]);
+  }, [edgeDocked, persist, persistTodos, settings]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 250);
@@ -223,10 +312,11 @@ export default function App() {
     if (timer.phase !== "running" || remaining > 0 || completionBusy.current) return;
     completionBusy.current = true;
     const finishedMode = timer.mode;
+    if (finishedMode === "focus") persistTodos(endTodoSession(todosRef.current, timer.endAt || Date.now()));
     const next = completeTimer(timer, settings, Date.now());
     notifyCompletion(finishedMode, next);
     window.setTimeout(() => { completionBusy.current = false; }, 300);
-  }, [notifyCompletion, remaining, settings, timer]);
+  }, [notifyCompletion, persistTodos, remaining, settings, timer]);
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -249,20 +339,60 @@ export default function App() {
 
   const toggleTimer = useCallback(() => {
     if (timer.phase === "running") {
+      if (timer.mode === "focus") persistTodos(pauseTodoSession(todosRef.current, Date.now()));
       persist(pauseTimer(timer));
       setView("main");
       return;
     }
     const ready = timer.phase === "completed" ? prepareNext(timer, settings) : timer;
+    if (ready.mode === "focus" && todosRef.current.selectedIds.length === 0) {
+      setView("todos");
+      return;
+    }
     const started = startTimer(ready);
+    if (started.mode === "focus") persistTodos(startTodoSession(todosRef.current, Date.now(), makeId("session"), makeId("segment")));
     persist(started);
     if (started.mode === "focus" && settings.autoCollapse && !edgeDocked) setView("mini");
-  }, [edgeDocked, persist, settings, timer]);
+  }, [edgeDocked, persist, persistTodos, settings, timer]);
 
   const skip = useCallback(() => {
+    if (timer.mode === "focus") persistTodos(endTodoSession(todosRef.current, Date.now()));
     persist(skipTimer(timer, settings));
     setView("main");
-  }, [persist, settings, timer]);
+  }, [persist, persistTodos, settings, timer]);
+
+  const reset = useCallback(() => {
+    if (timer.mode === "focus") persistTodos(endTodoSession(todosRef.current, Date.now()));
+    persist(resetTimer(timer, settings));
+  }, [persist, persistTodos, settings, timer]);
+
+  const addNewTodo = useCallback((kind: TodoKind, title: string) => {
+    const id = makeId("todo");
+    let next = addTodo(todosRef.current, kind, title, id);
+    if (timer.phase === "running" && timer.mode === "focus" && !next.activeTodoId) next = switchActiveTodo(next, id, Date.now(), makeId("segment"), true);
+    persistTodos(next);
+  }, [persistTodos, timer]);
+  const selectTodo = useCallback((id: string) => persistTodos(toggleTodoSelection(todosRef.current, id, Date.now(), makeId("segment"), timer.phase === "running" && timer.mode === "focus")), [persistTodos, timer]);
+  const activateTodo = useCallback((id: string) => persistTodos(switchActiveTodo(todosRef.current, id, Date.now(), makeId("segment"), timer.phase === "running" && timer.mode === "focus")), [persistTodos, timer]);
+  const activateLong = useCallback((id: string) => {
+    if (timer.phase === "running" && todosRef.current.activeLongId && todosRef.current.activeLongId !== id && !window.confirm("更换长期目标会从当前时刻开始新的时间片，继续吗？")) return;
+    persistTodos(switchLongTodo(todosRef.current, id, Date.now(), makeId("segment"), timer.phase === "running" && timer.mode === "focus"));
+  }, [persistTodos, timer]);
+  const punch = useCallback((id: string) => {
+    const target = todosRef.current.todos.find((todo) => todo.id === id);
+    if (!target) return;
+    if (target?.kind === "long" && todosRef.current.todos.some((todo) => todo.parentLongId === id && todo.status === "open") && !window.confirm("这个长期待办仍有未完成的短期待办，确认 Punch？")) return;
+    const punchedAt = Date.now();
+    const elapsed = target.kind === "long" ? elapsedForLongTodo(todosRef.current, id, punchedAt) : elapsedForTodo(todosRef.current, id, punchedAt);
+    persistTodos(punchTodo(todosRef.current, id, punchedAt, makeId("punch"), makeId("segment"), timer.phase === "running" && timer.mode === "focus"));
+    setPunchNotice(`已 Punch · ${target.title} · ${formatElapsed(elapsed)}`);
+    if (punchNoticeTimer.current) window.clearTimeout(punchNoticeTimer.current);
+    punchNoticeTimer.current = window.setTimeout(() => setPunchNotice(null), 2600);
+  }, [persistTodos, timer]);
+
+  useEffect(() => () => {
+    if (punchNoticeTimer.current) window.clearTimeout(punchNoticeTimer.current);
+  }, []);
 
   useEffect(() => window.tomatoDesktop?.onTrayAction((action) => {
     if (action === "toggle") toggleTimer();
@@ -295,6 +425,10 @@ export default function App() {
     return <SettingsPanel value={settings} onSave={saveSettings} onCancel={() => setView("main")} />;
   }
 
+  if (view === "todos") {
+    return <TodoPanel state={todos} now={now} running={timer.phase === "running" && timer.mode === "focus"} notice={punchNotice} onChange={selectTodo} onAdd={addNewTodo} onActive={activateTodo} onLong={activateLong} onPunch={punch} onClose={() => setView("main")} />;
+  }
+
   if (view === "edge") {
     return (
       <main
@@ -318,7 +452,7 @@ export default function App() {
         <div className="mini-copy">
           <strong>{formatTime(remaining)}</strong>
           <div className="mini-meta">
-            <span className="mini-task">{timer.task.trim() || phaseLabel(timer)}</span>
+            <span className="mini-task">{activeTodo?.title || activeLong?.title || phaseLabel(timer)}</span>
             <time dateTime={systemClock.iso} aria-label={`系统日期时间 ${systemClock.date} ${systemClock.time}`}>
               {systemClock.compactDate} · {systemClock.time}
             </time>
@@ -351,6 +485,7 @@ export default function App() {
       </header>
 
       <section className="widget-content">
+        {punchNotice && <div className="punch-notice main-notice" role="status"><Check size={14} />{punchNotice}</div>}
         <div className="timer-ring" style={{ "--progress": `${progress * 360}deg` } as React.CSSProperties}>
           <div className="timer-inner">
             <strong>{formatTime(remaining)}</strong>
@@ -359,15 +494,12 @@ export default function App() {
           <TomatoMascot mood={mood} />
         </div>
         <div className="task-area no-drag">
-          <label htmlFor="task">这一轮要完成</label>
-          <input
-            id="task"
-            value={timer.task}
-            placeholder="准备开始专注"
-            disabled={timer.phase === "running"}
-            maxLength={80}
-            onChange={(event) => persist({ ...timer, task: event.target.value })}
-          />
+          <div className="active-context">
+            <span>{activeLong ? <><Target size={12} />{activeLong.title}</> : "未选择长期目标"}</span>
+            <button aria-label="管理本轮待办" onClick={() => setView("todos")}><ListTodo size={14} /></button>
+          </div>
+          <div className="active-task-line"><strong>{activeTodo?.title || (todos.selectedIds.length ? "选择当前执行任务" : "开始前选择待办")}</strong>{activeTodo && <button onClick={() => punch(activeTodo.id)}><Check size={12} />Punch</button>}</div>
+          {activeTodo && <small className="active-elapsed">本轮累计 {formatElapsed(elapsedForTodo(todos, activeTodo.id, now))}</small>}
           <span className="progress-label">今日进度</span>
           <div className="session-progress" aria-label={`今日完成 ${timer.completedToday} 个番茄`}>
             {[0, 1, 2, 3].map((index) => <i key={index} className={index < timer.completedToday % 4 ? "done" : ""} />)}
@@ -378,9 +510,9 @@ export default function App() {
 
       <footer className="widget-actions no-drag">
         <button type="button" className="primary-action" onClick={toggleTimer}>
-          {timer.phase === "running" ? <><Pause size={17} fill="currentColor" />暂停</> : <><Play size={17} fill="currentColor" />{timer.phase === "paused" ? "继续" : timer.phase === "completed" ? "开始下一阶段" : isBreak ? "开始休息" : "开始专注"}</>}
+          {timer.phase === "running" ? <><Pause size={17} fill="currentColor" />暂停</> : <><Play size={17} fill="currentColor" />{timer.phase === "paused" ? "继续" : timer.phase === "completed" ? "开始下一阶段" : isBreak ? "开始休息" : todos.selectedIds.length ? "开始专注" : "选择待办开始"}</>}
         </button>
-        <button type="button" className="secondary-action" aria-label="重置" onClick={() => persist(resetTimer(timer, settings))}><RotateCcw size={18} /></button>
+        <button type="button" className="secondary-action" aria-label="重置" onClick={reset}><RotateCcw size={18} /></button>
         <button type="button" className="secondary-action" aria-label="跳过当前阶段" onClick={skip}><SkipForward size={19} /></button>
       </footer>
     </main>
