@@ -9,6 +9,22 @@ contextBridge.exposeInMainWorld("tomatoDesktop", {
   hideWindow: () => ipcRenderer.invoke("window:hide"),
   expandEdge: () => ipcRenderer.invoke("window:expand-edge"),
   collapseEdge: () => ipcRenderer.invoke("window:collapse-edge"),
+  showTodoWindow: () => ipcRenderer.invoke("todo-window:show"),
+  hideTodoWindow: () => ipcRenderer.invoke("todo-window:hide"),
+  toggleTodoCollapsed: () => ipcRenderer.invoke("todo-window:toggle-collapsed"),
+  setTodoFollowing: (value) => ipcRenderer.invoke("todo-window:set-following", value),
+  getTodoWindowState: () => ipcRenderer.invoke("todo-window:get-state"),
+  broadcastState: (key, value) => ipcRenderer.send("state:broadcast", { key, value }),
+  onSharedState: (callback) => {
+    const handler = (_event, payload) => callback(payload.key, payload.value);
+    ipcRenderer.on("state:shared", handler);
+    return () => ipcRenderer.removeListener("state:shared", handler);
+  },
+  onTodoWindowState: (callback) => {
+    const handler = (_event, state) => callback(state);
+    ipcRenderer.on("todo-window:state", handler);
+    return () => ipcRenderer.removeListener("todo-window:state", handler);
+  },
   onDockState: (callback) => {
     const handler = (_event, state) => callback(state);
     ipcRenderer.on("window:dock-state", handler);

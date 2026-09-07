@@ -359,6 +359,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .todo-summary span { color: var(--muted); font-size: 9px; }
 .punch-notice { display: flex; align-items: center; gap: 7px; margin: 10px 16px 0; padding: 8px 11px; border: 1px solid rgba(83,132,81,.2); border-radius: 12px; background: rgba(225,240,218,.92); color: #436b42; font-size: 10px; font-weight: 700; animation: notice-in .24s cubic-bezier(.22,1,.36,1) both; }
 .main-notice { position: absolute; z-index: 4; top: 4px; left: 50%; width: max-content; max-width: 310px; margin: 0; transform: translateX(-50%); box-shadow: 0 8px 20px rgba(70,91,60,.14); }
+.main-notice button { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border: 0; border-radius: 7px; background: rgba(67,107,66,.12); color: inherit; font: inherit; cursor: pointer; }
 @keyframes notice-in { from { opacity: 0; transform: translateY(-7px); } to { opacity: 1; transform: translateY(0); } }
 .main-notice { animation-name: main-notice-in; }
 @keyframes main-notice-in { from { opacity: 0; transform: translate(-50%, -7px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -392,6 +393,84 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .todo-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 16px; border-top: 1px solid rgba(128,101,92,.1); }
 .todo-footer span { color: var(--muted); font-size: 9px; }
 .todo-footer button { height: 38px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--tomato); color: white; font-size: 11px; font-weight: 750; cursor: pointer; }
+
+.todo-companion { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(255,255,255,.92); border-radius: 24px; background: rgba(255,247,237,.99); box-shadow: inset 0 1px 0 #fff, 0 16px 36px rgba(116,54,38,.17); animation: dock-expand-in .24s cubic-bezier(.22,1,.36,1) both; }
+.todo-companion.collapsed { border-radius: 18px; }
+.todo-companion-header { height: 46px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(128,101,92,.1); }
+.todo-companion-header > div { display: flex; align-items: center; gap: 7px; }
+.todo-companion-header > div:first-child { color: var(--brown); font-size: 11px; }
+.todo-companion-header > div:first-child > svg { padding: 3px; border-radius: 7px; background: var(--tomato); color: white; box-sizing: content-box; }
+.todo-companion-header button { height: 27px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 8px; font-weight: 700; cursor: pointer; }
+.todo-companion-header button.following { background: rgba(47,58,47,.08); color: var(--leaf); }
+.todo-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 10px 14px 0; padding: 3px; border-radius: 11px; background: rgba(128,101,92,.07); }
+.todo-tabs button { height: 31px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 650; cursor: pointer; }
+.todo-tabs button.active { background: white; color: var(--tomato); box-shadow: 0 2px 7px rgba(59,42,36,.08); }
+.todo-tabs span { margin-left: 3px; padding: 1px 5px; border-radius: 99px; background: var(--peach); font-size: 8px; }
+.punch-undo { display: flex; align-items: center; gap: 6px; margin: 8px 14px 0; padding: 7px 9px; border-radius: 10px; background: var(--leaf); color: white; font-size: 8px; animation: notice-in .2s ease-out both; }
+.punch-undo span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.punch-undo button { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border: 0; border-radius: 6px; background: rgba(255,255,255,.14); color: white; font-size: 8px; font-weight: 750; cursor: pointer; }
+.todo-toolbar { display: flex; align-items: center; gap: 7px; margin: 9px 14px 0; }
+.todo-toolbar label { min-width: 0; height: 32px; flex: 1; display: flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid rgba(128,101,92,.12); border-radius: 10px; background: rgba(255,255,255,.72); color: var(--muted); }
+.todo-toolbar input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--brown); font-size: 9px; }
+.todo-toolbar > div { display: flex; gap: 2px; }
+.todo-toolbar > div button { height: 25px; padding: 0 7px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 8px; cursor: pointer; }
+.todo-toolbar > div button.active { background: var(--brown); color: white; font-weight: 700; }
+.companion-session { margin: 8px 14px 0; padding: 8px 9px; border: 1px solid rgba(217,72,59,.14); border-radius: 12px; background: rgba(255,216,199,.32); }
+.companion-session header { display: flex; align-items: center; justify-content: space-between; }
+.companion-session header span { display: inline-flex; align-items: center; gap: 4px; color: var(--tomato); font-size: 9px; font-weight: 750; }
+.companion-session header small { color: var(--muted); font-size: 8px; }
+.companion-session > div { display: flex; gap: 4px; margin-top: 6px; overflow-x: auto; scrollbar-width: none; }
+.companion-session > div::-webkit-scrollbar { display: none; }
+.companion-session > div button { max-width: 125px; height: 22px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; overflow: hidden; padding: 0 7px; border: 0; border-radius: 7px; background: rgba(255,255,255,.75); color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.companion-session > div button.active { background: var(--tomato); color: white; font-weight: 750; }
+.companion-create { display: grid; grid-template-columns: auto 1fr auto; gap: 5px; margin: 7px 14px 0; }
+.companion-create > div { display: flex; padding: 2px; border-radius: 8px; background: rgba(128,101,92,.07); }
+.companion-create button { height: 30px; display: inline-flex; align-items: center; gap: 3px; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 8px; cursor: pointer; }
+.companion-create > div button { height: 26px; padding: 0 6px; }
+.companion-create button.active { background: white; color: var(--tomato); font-weight: 750; }
+.companion-create > button { background: var(--tomato); color: white; font-weight: 700; }
+.companion-create input { min-width: 0; height: 30px; padding: 0 8px; border: 1px solid rgba(128,101,92,.12); border-radius: 8px; background: white; color: var(--brown); font-size: 9px; }
+.companion-list { min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; margin-top: 8px; padding: 0 14px 9px; scrollbar-width: thin; scrollbar-color: var(--peach) transparent; }
+.companion-list > article { min-height: 49px; flex: 0 0 auto; display: flex; align-items: center; gap: 7px; padding: 7px 8px; border: 1px solid rgba(128,101,92,.1); border-radius: 12px; background: rgba(255,255,255,.66); }
+.companion-list > article.selected { border-color: rgba(217,72,59,.22); background: white; }
+.companion-list > article.active { box-shadow: inset 3px 0 0 var(--tomato); }
+.companion-check { width: 19px; height: 19px; flex: 0 0 auto; display: grid; place-items: center; padding: 0; border: 1px solid rgba(128,101,92,.25); border-radius: 6px; background: white; color: white; }
+.companion-check[aria-pressed="true"], .companion-list article:not(.selected) .companion-check:has(svg) { border-color: var(--tomato); background: var(--tomato); }
+.companion-copy { min-width: 0; flex: 1; }
+.companion-copy strong { display: block; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.companion-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; }
+.companion-actions { display: flex; align-items: center; gap: 3px; }
+.companion-actions button { height: 24px; display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; border: 0; border-radius: 7px; background: rgba(47,58,47,.08); color: var(--leaf); font-size: 7px; font-weight: 700; cursor: pointer; }
+.companion-actions button.punch, .companion-actions button.restore { background: var(--peach); color: #8f3028; }
+.companion-actions button.restore-session { background: var(--tomato); color: white; }
+.companion-empty { flex: 1; display: grid; place-content: center; place-items: center; gap: 5px; color: var(--muted); text-align: center; }
+.companion-empty strong { color: var(--brown); font-size: 10px; }
+.companion-empty span { font-size: 8px; }
+.companion-footer { height: 36px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-top: 1px solid rgba(128,101,92,.1); color: var(--muted); font-size: 8px; }
+.companion-footer span { display: flex; align-items: center; gap: 5px; }
+.companion-footer i { width: 6px; height: 6px; border-radius: 50%; background: var(--leaf); box-shadow: 0 0 0 3px rgba(47,58,47,.08); }
+.companion-footer strong { color: var(--leaf); }
+.todo-history { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; background: var(--cream); animation: history-in .22s cubic-bezier(.22,1,.36,1) both; }
+.todo-history > header { height: 46px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(128,101,92,.1); }
+.todo-history > header button { display: inline-flex; align-items: center; gap: 3px; border: 0; background: transparent; color: var(--muted); font-size: 9px; font-weight: 700; cursor: pointer; }
+.todo-history > header span { padding: 3px 7px; border-radius: 99px; background: var(--peach); color: var(--tomato); font-size: 8px; font-weight: 700; }
+.todo-history-scroll { flex: 1; overflow-y: auto; padding: 14px; }
+.todo-history-scroll h2 { margin: 0; font-size: 15px; }
+.todo-history-scroll > p { margin: 4px 0 0; color: var(--muted); font-size: 8px; }
+.history-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 13px; }
+.history-stats div { padding: 9px; border-radius: 10px; background: white; }
+.history-stats small { display: block; color: var(--muted); font-size: 7px; }
+.history-stats strong { display: block; margin-top: 4px; font-size: 11px; }
+.todo-history-scroll h3 { margin: 18px 0 9px; font-size: 9px; }
+.history-timeline { margin-left: 4px; padding-left: 13px; border-left: 1px solid rgba(128,101,92,.17); }
+.history-timeline > div { position: relative; display: flex; flex-direction: column; gap: 3px; padding-bottom: 14px; }
+.history-timeline i { position: absolute; top: 3px; left: -17px; width: 7px; height: 7px; border-radius: 50%; background: var(--tomato); }
+.history-timeline strong { font-size: 9px; }
+.history-timeline span { color: var(--muted); font-size: 8px; }
+.todo-history > footer { display: grid; grid-template-columns: 1fr 1.2fr; gap: 6px; padding: 10px 14px 14px; border-top: 1px solid rgba(128,101,92,.1); }
+.todo-history > footer button { height: 35px; border: 0; border-radius: 10px; background: rgba(128,101,92,.09); color: var(--brown); font-size: 9px; font-weight: 700; cursor: pointer; }
+.todo-history > footer button:last-child { background: var(--tomato); color: white; }
+@keyframes history-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

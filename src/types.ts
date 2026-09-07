@@ -1,6 +1,6 @@
 export type TimerMode = "focus" | "shortBreak" | "longBreak";
 export type TimerPhase = "idle" | "running" | "paused" | "completed";
-export type ViewMode = "main" | "mini" | "settings" | "todos" | "edge";
+export type ViewMode = "main" | "mini" | "settings" | "edge";
 
 export type TodoKind = "long" | "short";
 export type TodoStatus = "open" | "completed";
@@ -13,6 +13,7 @@ export interface Todo {
   parentLongId: string | null;
   createdAt: number;
   completedAt: number | null;
+  cycleStartedAt: number;
 }
 
 export interface TimeSegment {
@@ -30,6 +31,19 @@ export interface PunchRecord {
   sessionId: string | null;
   punchedAt: number;
   elapsedMs: number;
+  totalElapsedMs: number;
+  previousSelectedIds: string[];
+  previousActiveTodoId: string | null;
+  previousActiveLongId: string | null;
+  detachedChildIds: string[];
+  undoneAt: number | null;
+}
+
+export interface ReopenRecord {
+  id: string;
+  todoId: string;
+  reopenedAt: number;
+  joinedSession: boolean;
 }
 
 export interface TodoState {
@@ -40,6 +54,7 @@ export interface TodoState {
   sessionId: string | null;
   segments: TimeSegment[];
   punches: PunchRecord[];
+  reopens: ReopenRecord[];
 }
 
 export interface Settings {
@@ -77,6 +92,14 @@ export interface DesktopApi {
   hideWindow: () => Promise<void>;
   expandEdge: () => Promise<void>;
   collapseEdge: () => Promise<void>;
+  showTodoWindow: () => Promise<void>;
+  hideTodoWindow: () => Promise<void>;
+  toggleTodoCollapsed: () => Promise<void>;
+  setTodoFollowing: (value: boolean) => Promise<void>;
+  getTodoWindowState: () => Promise<{ following: boolean; collapsed: boolean }>;
+  broadcastState: (key: string, value: unknown) => void;
+  onSharedState: (callback: (key: string, value: unknown) => void) => () => void;
+  onTodoWindowState: (callback: (state: { following: boolean; collapsed: boolean }) => void) => () => void;
   onDockState: (callback: (state: { docked: boolean; collapsed: boolean }) => void) => () => void;
   onTrayAction: (callback: (action: string) => void) => () => void;
 }

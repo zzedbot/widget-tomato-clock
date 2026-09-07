@@ -6,6 +6,10 @@ import {
   CirclePlay,
   Clock3,
   Coffee,
+  EyeOff,
+  History,
+  Link,
+  Link2Off,
   ListTodo,
   Minus,
   Pause,
@@ -14,9 +18,11 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Search,
   Settings as SettingsIcon,
   SkipForward,
   Target,
+  Undo2,
   Volume2,
   X
 } from "lucide-react";
@@ -34,8 +40,8 @@ import {
   skipTimer,
   startTimer
 } from "./timer";
-import { addTodo, elapsedForLongTodo, elapsedForTodo, endTodoSession, EMPTY_TODO_STATE, normalizeTodoState, pauseTodoSession, punchTodo, startTodoSession, switchActiveTodo, switchLongTodo, toggleTodoSelection } from "./todos";
-import type { Settings, TimerMode, TimerState, TodoKind, TodoState, ViewMode } from "./types";
+import { addTodo, elapsedForLongTodo, elapsedForTodo, endTodoSession, EMPTY_TODO_STATE, normalizeTodoState, pauseTodoSession, punchTodo, reopenTodo, startTodoSession, switchActiveTodo, switchLongTodo, toggleTodoSelection, undoPunch } from "./todos";
+import type { Settings, TimerMode, TimerState, Todo, TodoKind, TodoState, ViewMode } from "./types";
 
 const SETTINGS_KEY = "tomato-clock:settings:v1";
 const TIMER_KEY = "tomato-clock:timer:v1";
@@ -195,61 +201,7 @@ function SettingsPanel({ value, onSave, onCancel }: { value: Settings; onSave: (
   );
 }
 
-function TodoPanel({ state, now, running, notice, onChange, onAdd, onActive, onLong, onPunch, onClose }: {
-  state: TodoState; now: number; running: boolean;
-  notice: string | null;
-  onChange: (id: string) => void; onAdd: (kind: TodoKind, title: string) => void;
-  onActive: (id: string) => void; onLong: (id: string) => void; onPunch: (id: string) => void; onClose: () => void;
-}) {
-  const [kind, setKind] = useState<TodoKind>("short");
-  const [title, setTitle] = useState("");
-  const open = state.todos.filter((todo) => todo.status === "open");
-  const submit = () => { if (title.trim()) { onAdd(kind, title); setTitle(""); } };
-  return (
-    <section className="todo-panel">
-      <header className="todo-header drag-region">
-        <button className="text-button no-drag" type="button" onClick={onClose}><ChevronLeft size={18} />本轮待办</button>
-        <span>{state.selectedIds.length} 项已选择</span>
-      </header>
-      {notice && <div className="punch-notice" role="status"><Check size={14} />{notice}</div>}
-      <div className="todo-summary"><Clock3 size={17} /><div><strong>{running ? "专注进行中" : "开始前选择任务"}</strong><span>同一时刻仅一个任务累计时间</span></div></div>
-      <div className="todo-create no-drag">
-        <div className="todo-kind-switch">
-          <button className={kind === "short" ? "active" : ""} onClick={() => setKind("short")}>短期待办</button>
-          <button className={kind === "long" ? "active" : ""} onClick={() => setKind("long")}>长期待办</button>
-        </div>
-        <div className="todo-create-row"><input value={title} maxLength={80} placeholder={`新建${kind === "long" ? "长期目标" : "短期待办"}`} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") submit(); }} /><button onClick={submit}><Plus size={16} />添加</button></div>
-      </div>
-      <div className="todo-scroll no-drag">
-        {(["long", "short"] as TodoKind[]).map((sectionKind) => (
-          <section className="todo-section" key={sectionKind}>
-            <div className="todo-section-title"><span>{sectionKind === "long" ? <Target size={14} /> : <ListTodo size={14} />}{sectionKind === "long" ? "长期待办" : "短期待办"}</span><small>{sectionKind === "long" ? "跨天目标" : "几分钟到几小时"}</small></div>
-            <div className="todo-list">
-              {open.filter((todo) => todo.kind === sectionKind).map((todo) => {
-                const selected = state.selectedIds.includes(todo.id);
-                const active = state.activeTodoId === todo.id;
-                const currentLong = state.activeLongId === todo.id;
-                const elapsed = todo.kind === "long" ? elapsedForLongTodo(state, todo.id, now) : elapsedForTodo(state, todo.id, now);
-                return <article className={`todo-row ${selected ? "selected" : ""} ${active ? "active-todo" : ""}`} key={todo.id}>
-                  <button className="todo-check" disabled={running && active} aria-label={selected ? `取消选择${todo.title}` : `选择${todo.title}`} onClick={() => onChange(todo.id)}>{selected && <Check size={13} />}</button>
-                  <div className="todo-row-copy"><strong>{todo.title}</strong><span>累计 {formatElapsed(elapsed)}{active ? " · 正在计时" : ""}</span></div>
-                  <div className="todo-row-actions">
-                    {todo.kind === "long" ? <button className={currentLong ? "current" : ""} onClick={() => onLong(todo.id)}>{currentLong ? "当前目标" : "设为目标"}</button> : selected && <button className={active ? "current" : ""} onClick={() => onActive(todo.id)}>{active ? "执行中" : "执行"}</button>}
-                    <button className="punch-small" onClick={() => onPunch(todo.id)}>Punch</button>
-                  </div>
-                </article>;
-              })}
-              {!open.some((todo) => todo.kind === sectionKind) && <p className="todo-empty">还没有{sectionKind === "long" ? "长期目标" : "短期待办"}</p>}
-            </div>
-          </section>
-        ))}
-      </div>
-      <footer className="todo-footer"><span>至少选择 1 项才能开始专注</span><button onClick={onClose}>{running ? "返回计时" : state.selectedIds.length ? "完成选择" : "稍后再说"}</button></footer>
-    </section>
-  );
-}
-
-export default function App() {
+function TimerApp() {
   const [settings, setSettings] = useState<Settings>(() => readJson(SETTINGS_KEY, DEFAULT_SETTINGS));
   const [timer, setTimer] = useState<TimerState>(() => normalizeForToday(readJson(TIMER_KEY, createInitialState())));
   const [todos, setTodos] = useState<TodoState>(() => normalizeTodoState(readJson(TODOS_KEY, EMPTY_TODO_STATE)));
@@ -274,12 +226,23 @@ export default function App() {
     todosRef.current = next;
     setTodos(next);
     localStorage.setItem(TODOS_KEY, JSON.stringify(next));
+    window.tomatoDesktop?.broadcastState(TODOS_KEY, next);
   }, []);
 
   const persist = useCallback((next: TimerState) => {
     setTimer(next);
     localStorage.setItem(TIMER_KEY, JSON.stringify(next));
+    window.tomatoDesktop?.broadcastState(TIMER_KEY, next);
   }, []);
+
+  useEffect(() => window.tomatoDesktop?.onSharedState((key, value) => {
+    if (key === TODOS_KEY) {
+      const next = normalizeTodoState(value as TodoState);
+      todosRef.current = next;
+      setTodos(next);
+      localStorage.setItem(TODOS_KEY, JSON.stringify(next));
+    }
+  }), []);
 
   const notifyCompletion = useCallback((finishedMode: TimerMode, next: TimerState) => {
     const focusFinished = finishedMode === "focus";
@@ -293,7 +256,7 @@ export default function App() {
       const ready = prepareNext(next, settings);
       if (ready.mode === "focus" && todosRef.current.selectedIds.length === 0) {
         persist(ready);
-        setView("todos");
+        void window.tomatoDesktop?.showTodoWindow();
         return;
       }
       const started = startTimer(ready);
@@ -349,7 +312,7 @@ export default function App() {
     }
     const ready = timer.phase === "completed" ? prepareNext(timer, settings) : timer;
     if (ready.mode === "focus" && todosRef.current.selectedIds.length === 0) {
-      setView("todos");
+      void window.tomatoDesktop?.showTodoWindow();
       return;
     }
     const started = startTimer(ready);
@@ -369,18 +332,7 @@ export default function App() {
     persist(resetTimer(timer, settings));
   }, [persist, persistTodos, settings, timer]);
 
-  const addNewTodo = useCallback((kind: TodoKind, title: string) => {
-    const id = makeId("todo");
-    let next = addTodo(todosRef.current, kind, title, id);
-    if (timer.phase === "running" && timer.mode === "focus" && !next.activeTodoId) next = switchActiveTodo(next, id, Date.now(), makeId("segment"), true);
-    persistTodos(next);
-  }, [persistTodos, timer]);
-  const selectTodo = useCallback((id: string) => persistTodos(toggleTodoSelection(todosRef.current, id, Date.now(), makeId("segment"), timer.phase === "running" && timer.mode === "focus")), [persistTodos, timer]);
   const activateTodo = useCallback((id: string) => persistTodos(switchActiveTodo(todosRef.current, id, Date.now(), makeId("segment"), timer.phase === "running" && timer.mode === "focus")), [persistTodos, timer]);
-  const activateLong = useCallback((id: string) => {
-    if (timer.phase === "running" && todosRef.current.activeLongId && todosRef.current.activeLongId !== id && !window.confirm("更换长期目标会从当前时刻开始新的时间片，继续吗？")) return;
-    persistTodos(switchLongTodo(todosRef.current, id, Date.now(), makeId("segment"), timer.phase === "running" && timer.mode === "focus"));
-  }, [persistTodos, timer]);
   const punch = useCallback((id: string) => {
     const target = todosRef.current.todos.find((todo) => todo.id === id);
     if (!target) return;
@@ -390,7 +342,13 @@ export default function App() {
     persistTodos(punchTodo(todosRef.current, id, punchedAt, makeId("punch"), makeId("segment"), timer.phase === "running" && timer.mode === "focus"));
     setPunchNotice(`已 Punch · ${target.title} · ${formatElapsed(elapsed)}`);
     if (punchNoticeTimer.current) window.clearTimeout(punchNoticeTimer.current);
-    punchNoticeTimer.current = window.setTimeout(() => setPunchNotice(null), 2600);
+    punchNoticeTimer.current = window.setTimeout(() => setPunchNotice(null), 5000);
+  }, [persistTodos, timer]);
+  const undoLatestPunch = useCallback(() => {
+    const latest = todosRef.current.punches.slice().reverse().find((record) => record.undoneAt === null && Date.now() - record.punchedAt <= 5_000);
+    if (!latest) return;
+    persistTodos(undoPunch(todosRef.current, latest.id, Date.now(), makeId("segment"), timer.phase === "running" && timer.mode === "focus"));
+    setPunchNotice(null);
   }, [persistTodos, timer]);
 
   useEffect(() => () => {
@@ -426,10 +384,6 @@ export default function App() {
 
   if (view === "settings") {
     return <SettingsPanel value={settings} onSave={saveSettings} onCancel={() => setView("main")} />;
-  }
-
-  if (view === "todos") {
-    return <TodoPanel state={todos} now={now} running={timer.phase === "running" && timer.mode === "focus"} notice={punchNotice} onChange={selectTodo} onAdd={addNewTodo} onActive={activateTodo} onLong={activateLong} onPunch={punch} onClose={() => setView("main")} />;
   }
 
   if (view === "edge") {
@@ -488,7 +442,7 @@ export default function App() {
       </header>
 
       <section className="widget-content">
-        {punchNotice && <div className="punch-notice main-notice" role="status"><Check size={14} />{punchNotice}</div>}
+        {punchNotice && <div className="punch-notice main-notice" role="status"><Check size={14} /><span>{punchNotice}</span><button type="button" onClick={undoLatestPunch}><Undo2 size={11} />撤销</button></div>}
         <div className="timer-ring" style={{ "--progress": `${progress * 360}deg` } as React.CSSProperties}>
           <div className="timer-inner">
             <strong>{formatTime(remaining)}</strong>
@@ -499,7 +453,6 @@ export default function App() {
         <div className="task-area no-drag">
           <div className="active-context">
             <span>{activeLong ? <><Target size={12} />{activeLong.title}</> : "未选择长期目标"}</span>
-            <button aria-label="管理本轮待办" onClick={() => setView("todos")}><ListTodo size={14} /></button>
           </div>
           <div className="active-task-line"><strong>{activeTodo?.title || (todos.selectedIds.length ? "选择当前执行任务" : "开始前选择待办")}</strong>{activeTodo && <button onClick={() => punch(activeTodo.id)}><Check size={12} />Punch</button>}</div>
           {activeTodo && <small className="active-elapsed">本轮累计 {formatElapsed(elapsedForTodo(todos, activeTodo.id, now))}</small>}
@@ -534,4 +487,136 @@ export default function App() {
       </footer>
     </main>
   );
+}
+
+function completionCount(state: TodoState, todoId: string) {
+  return state.punches.filter((punch) => punch.todoId === todoId && punch.undoneAt === null).length;
+}
+
+function TodoHistoryPanel({ todo, state, onClose, onRestore }: { todo: Todo; state: TodoState; onClose: () => void; onRestore: (join: boolean) => void }) {
+  const punches = state.punches.filter((record) => record.todoId === todo.id).slice().reverse();
+  const reopens = state.reopens.filter((record) => record.todoId === todo.id);
+  const total = todo.kind === "long" ? elapsedForLongTodo(state, todo.id) : elapsedForTodo(state, todo.id);
+  return <aside className="todo-history no-drag">
+    <header><button onClick={onClose}><ChevronLeft size={15} />返回</button><span>第 {completionCount(state, todo.id)} 次完成</span></header>
+    <div className="todo-history-scroll">
+      <h2>{todo.title}</h2><p>{todo.kind === "long" ? "长期待办" : "短期待办"} · {todo.status === "completed" ? "已办" : "待办"}</p>
+      <div className="history-stats"><div><small>历史总计</small><strong>{formatElapsed(total)}</strong></div><div><small>完成次数</small><strong>{completionCount(state, todo.id)}</strong></div><div><small>恢复次数</small><strong>{reopens.length}</strong></div></div>
+      <h3>活动时间线</h3>
+      <div className="history-timeline">
+        {[...punches.map((record) => ({ at: record.punchedAt, title: record.undoneAt ? "Punch 已撤销" : "Punch 完成", copy: `${new Date(record.punchedAt).toLocaleString("zh-CN")} · 本次 ${formatElapsed(record.elapsedMs)}` })), ...reopens.map((record) => ({ at: record.reopenedAt, title: "恢复为待办", copy: `${new Date(record.reopenedAt).toLocaleString("zh-CN")} · ${record.joinedSession ? "已加入本轮" : "仅恢复"}` }))].sort((a, b) => b.at - a.at).map((event) => <div key={`${event.title}:${event.at}`}><i /><strong>{event.title}</strong><span>{event.copy}</span></div>)}
+        <div><i /><strong>创建待办</strong><span>{new Date(todo.createdAt).toLocaleString("zh-CN")}</span></div>
+      </div>
+    </div>
+    {todo.status === "completed" && <footer><button onClick={() => onRestore(false)}>恢复为待办</button><button onClick={() => onRestore(true)}>恢复并加入本轮</button></footer>}
+  </aside>;
+}
+
+function TodoCompanionApp() {
+  const [todos, setTodos] = useState<TodoState>(() => normalizeTodoState(readJson(TODOS_KEY, EMPTY_TODO_STATE)));
+  const [timer, setTimer] = useState<TimerState>(() => normalizeForToday(readJson(TIMER_KEY, createInitialState())));
+  const [now, setNow] = useState(Date.now());
+  const [tab, setTab] = useState<"open" | "completed">("open");
+  const [kind, setKind] = useState<TodoKind>("short");
+  const [filter, setFilter] = useState<"all" | TodoKind>("all");
+  const [query, setQuery] = useState("");
+  const [title, setTitle] = useState("");
+  const [historyId, setHistoryId] = useState<string | null>(null);
+  const [following, setFollowing] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+  const todosRef = useRef(todos);
+  const running = timer.phase === "running" && timer.mode === "focus";
+
+  const persistTodos = useCallback((next: TodoState) => {
+    todosRef.current = next;
+    setTodos(next);
+    localStorage.setItem(TODOS_KEY, JSON.stringify(next));
+    window.tomatoDesktop?.broadcastState(TODOS_KEY, next);
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 250);
+    void window.tomatoDesktop?.getTodoWindowState().then((state) => {
+      if (state) { setFollowing(state.following); setCollapsed(state.collapsed); }
+    });
+    const removeShared = window.tomatoDesktop?.onSharedState((key, value) => {
+      if (key === TODOS_KEY) {
+        const next = normalizeTodoState(value as TodoState);
+        todosRef.current = next;
+        setTodos(next);
+        localStorage.setItem(TODOS_KEY, JSON.stringify(next));
+      }
+      if (key === TIMER_KEY) {
+        const next = value as TimerState;
+        setTimer(next);
+        localStorage.setItem(TIMER_KEY, JSON.stringify(next));
+      }
+    });
+    const removeWindowState = window.tomatoDesktop?.onTodoWindowState((state) => { setFollowing(state.following); setCollapsed(state.collapsed); });
+    return () => { window.clearInterval(interval); removeShared?.(); removeWindowState?.(); };
+  }, []);
+
+  const mutateAttribution = (action: (state: TodoState, at: number, segmentId: string, tracking: boolean) => TodoState) => {
+    const at = Date.now();
+    persistTodos(action(todosRef.current, at, makeId("segment"), running));
+  };
+  const add = () => {
+    if (!title.trim()) return;
+    const id = makeId("todo");
+    let next = addTodo(todosRef.current, kind, title, id);
+    if (running && !next.activeTodoId) next = switchActiveTodo(next, id, Date.now(), makeId("segment"), true);
+    persistTodos(next); setTitle(""); setTab("open");
+  };
+  const punch = (id: string) => {
+    const target = todosRef.current.todos.find((todo) => todo.id === id);
+    if (!target) return;
+    if (target.kind === "long" && todosRef.current.todos.some((todo) => todo.parentLongId === id && todo.status === "open") && !window.confirm("完成长期目标后，未完成子项会保留为独立待办。继续 Punch？")) return;
+    persistTodos(punchTodo(todosRef.current, id, Date.now(), makeId("punch"), makeId("segment"), running));
+  };
+  const restore = (id: string, joinSession: boolean) => {
+    const target = todosRef.current.todos.find((todo) => todo.id === id);
+    if (!target) return;
+    const completedChildren = target.kind === "long" ? todosRef.current.todos.filter((todo) => todo.parentLongId === id && todo.status === "completed") : [];
+    const restoreChildren = completedChildren.length > 0 && window.confirm(`是否同时恢复 ${completedChildren.length} 个已办子项？\n选择“取消”只恢复长期目标。`);
+    let next = reopenTodo(todosRef.current, id, Date.now(), makeId("reopen"), joinSession, makeId("segment"), running);
+    if (restoreChildren) for (const child of completedChildren) next = reopenTodo(next, child.id, Date.now(), makeId("reopen"), joinSession, makeId("segment"), running);
+    persistTodos(next); setHistoryId(null); setTab("open");
+  };
+
+  const visible = todos.todos.filter((todo) => todo.status === tab && (filter === "all" || todo.kind === filter) && todo.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const recentPunch = todos.punches.slice().reverse().find((record) => record.undoneAt === null && now - record.punchedAt <= 5_000 && !todos.reopens.some((reopen) => reopen.todoId === record.todoId && reopen.reopenedAt > record.punchedAt));
+  const historyTodo = todos.todos.find((todo) => todo.id === historyId) || null;
+
+  return <main className={`todo-companion ${collapsed ? "collapsed" : ""}`}>
+    <header className="todo-companion-header drag-region">
+      <div><ListTodo size={15} /><strong>完整待办</strong></div>
+      <div className="no-drag"><button className={following ? "following" : ""} onClick={() => void window.tomatoDesktop?.setTodoFollowing(!following)}>{following ? <Link size={12} /> : <Link2Off size={12} />}{following ? "已跟随" : "已分离"}</button><button aria-label={collapsed ? "展开待办窗口" : "收起待办窗口"} onClick={() => void window.tomatoDesktop?.toggleTodoCollapsed()}>{collapsed ? <Plus size={14} /> : <Minus size={14} />}</button><button aria-label="隐藏待办窗口" onClick={() => void window.tomatoDesktop?.hideTodoWindow()}><EyeOff size={14} /></button></div>
+    </header>
+    <nav className="todo-tabs no-drag"><button className={tab === "open" ? "active" : ""} onClick={() => setTab("open")}>待办 <span>{todos.todos.filter((todo) => todo.status === "open").length}</span></button><button className={tab === "completed" ? "active" : ""} onClick={() => setTab("completed")}>已办 <span>{todos.todos.filter((todo) => todo.status === "completed").length}</span></button></nav>
+    {recentPunch && <div className="punch-undo no-drag" role="status"><Check size={14} /><span>已 Punch · {todos.todos.find((todo) => todo.id === recentPunch.todoId)?.title} · {formatElapsed(recentPunch.elapsedMs)}</span><button onClick={() => persistTodos(undoPunch(todosRef.current, recentPunch.id, Date.now(), makeId("segment"), running))}><Undo2 size={12} />撤销</button></div>}
+    <div className="todo-toolbar no-drag"><label><Search size={13} /><input aria-label={`搜索${tab === "open" ? "待办" : "已办"}`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索${tab === "open" ? "待办" : "已办"}`} /></label><div>{(["all", "long", "short"] as const).map((value) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "全部" : value === "long" ? "长期" : "短期"}</button>)}</div></div>
+    {tab === "open" && <>
+      <section className="companion-session no-drag"><header><span><Clock3 size={13} />本轮待办</span><small>{todos.selectedIds.length} 项 · {running ? formatTime(remainingAt(timer, now)) : phaseLabel(timer)}</small></header><div>{todos.selectedIds.map((id) => todos.todos.find((todo) => todo.id === id && todo.status === "open")).filter((todo): todo is Todo => Boolean(todo)).map((todo) => <button key={todo.id} className={todo.id === todos.activeTodoId ? "active" : ""} onClick={() => mutateAttribution((state, at, segment, tracking) => switchActiveTodo(state, todo.id, at, segment, tracking))}>{todo.kind === "long" ? <Target size={10} /> : <ListTodo size={10} />}{todo.title}</button>)}</div></section>
+      <section className="companion-create no-drag"><div><button className={kind === "short" ? "active" : ""} onClick={() => setKind("short")}>短期</button><button className={kind === "long" ? "active" : ""} onClick={() => setKind("long")}>长期</button></div><input value={title} maxLength={80} placeholder={`新建${kind === "long" ? "长期目标" : "短期待办"}`} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") add(); }} /><button onClick={add}><Plus size={13} />添加</button></section>
+    </>}
+    <section className="companion-list no-drag">
+      {visible.map((todo) => {
+        const selected = todos.selectedIds.includes(todo.id), active = todos.activeTodoId === todo.id;
+        const elapsed = todo.kind === "long" ? elapsedForLongTodo(todos, todo.id, now) : elapsedForTodo(todos, todo.id, now);
+        const lastPunch = todos.punches.filter((record) => record.todoId === todo.id && record.undoneAt === null).at(-1);
+        return <article key={todo.id} className={`${selected ? "selected" : ""} ${active ? "active" : ""}`}>
+          <button className="companion-check" aria-pressed={selected} disabled={tab === "completed" || running && active} onClick={() => mutateAttribution((state, at, segment, tracking) => toggleTodoSelection(state, todo.id, at, segment, tracking))}>{tab === "completed" || selected ? <Check size={12} /> : null}</button>
+          <div className="companion-copy"><strong>{todo.title}</strong><span>{todo.kind === "long" ? "长期" : "短期"} · {tab === "completed" && lastPunch ? `${new Date(lastPunch.punchedAt).toLocaleDateString("zh-CN")} Punch · 本次 ${formatElapsed(lastPunch.elapsedMs)} · ` : ""}总计 {formatElapsed(elapsed)}{completionCount(todos, todo.id) ? ` · 完成 ${completionCount(todos, todo.id)} 次` : ""}</span></div>
+          <div className="companion-actions">{tab === "open" ? <>{todo.kind === "long" ? <button onClick={() => mutateAttribution((state, at, segment, tracking) => switchLongTodo(state, todo.id, at, segment, tracking))}>{todos.activeLongId === todo.id ? "当前目标" : "设为目标"}</button> : selected && <button onClick={() => mutateAttribution((state, at, segment, tracking) => switchActiveTodo(state, todo.id, at, segment, tracking))}>{active ? "执行中" : "执行"}</button>}<button className="punch" onClick={() => punch(todo.id)}>Punch</button></> : <><button onClick={() => setHistoryId(todo.id)}><History size={11} />记录</button><button className="restore" onClick={() => restore(todo.id, false)}>恢复</button>{running && <button className="restore-session" onClick={() => restore(todo.id, true)}>加入本轮</button>}</>}</div>
+        </article>;
+      })}
+      {visible.length === 0 && <div className="companion-empty"><ListTodo size={25} /><strong>{tab === "open" ? "没有符合条件的待办" : "Punch 完成的任务会保留在这里"}</strong><span>{tab === "open" ? "创建一项或调整筛选条件" : "已办不是删除，之后可以恢复为待办"}</span></div>}
+    </section>
+    <footer className="companion-footer"><span><i />窗口常驻 · 与计时器实时同步</span><strong>{following ? "已跟随主窗口" : "已临时分离"}</strong></footer>
+    {historyTodo && <TodoHistoryPanel todo={historyTodo} state={todos} onClose={() => setHistoryId(null)} onRestore={(join) => restore(historyTodo.id, join)} />}
+  </main>;
+}
+
+export default function App() {
+  return new URLSearchParams(window.location.search).get("window") === "todo" ? <TodoCompanionApp /> : <TimerApp />;
 }

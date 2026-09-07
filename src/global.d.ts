@@ -1,7 +1,7 @@
 import type { DesktopApi } from "./types";
 
 declare global {
-  interface Window {
+interface Window {
     tomatoDesktop?: DesktopApi;
   }
 }

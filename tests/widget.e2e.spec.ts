@@ -3,9 +3,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-async function expectWindowSize(electronApp: Awaited<ReturnType<typeof electron.launch>>, width: number, height: number) {
+async function expectWindowSize(electronApp: Awaited<ReturnType<typeof electron.launch>>, width: number, height: number, role: "main" | "todo" = "main") {
   await expect.poll(async () => {
-    const [actualWidth, actualHeight] = await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getSize());
+    const [actualWidth, actualHeight] = await electronApp.evaluate(({ BrowserWindow }, targetRole) => {
+      const window = BrowserWindow.getAllWindows().find((candidate) => candidate.webContents.getURL().includes("window=todo") === (targetRole === "todo"));
+      return window?.getSize() || [0, 0];
+    }, role);
     return Math.abs(actualWidth - width) <= 2 && Math.abs(actualHeight - height) <= 2;
   }).toBe(true);
 }
@@ -20,26 +23,47 @@ test("start collapses to mini and edge docking expands on hover", async () => {
   try {
     const page = await electronApp.firstWindow();
     await page.waitForSelector(".widget");
+    await expect.poll(() => electronApp.windows().length).toBe(2);
+    const todoPage = electronApp.windows().find((window) => window.url().includes("window=todo"));
+    expect(todoPage).toBeTruthy();
+    await todoPage!.waitForSelector(".todo-companion");
 
     await expectWindowSize(electronApp, 392, 270);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => {
+      const todo = BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes("window=todo"));
+      if (!todo) return "missing";
+      const [width, height] = todo.getSize();
+      return `${width}x${height}`;
+    })).toMatch(/^392x\d+$/);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => {
+      const windows = BrowserWindow.getAllWindows();
+      const main = windows.find((window) => !window.webContents.getURL().includes("window=todo"));
+      const todo = windows.find((window) => window.webContents.getURL().includes("window=todo"));
+      if (!main || !todo || !todo.isVisible()) return "missing";
+      const a = main.getBounds(), b = todo.getBounds();
+      const gap = b.y >= a.y ? b.y - (a.y + a.height) : a.y - (b.y + b.height);
+      return a.x === b.x && Math.abs(gap - 8) <= 1;
+    })).toBe(true);
     await expect(page.locator(".system-clock")).toBeVisible();
     await expect(page.locator(".system-clock strong")).toHaveText(/^\d{2}:\d{2}$/);
-    await page.getByRole("button", { name: "选择待办开始" }).click();
-    await expect(page.locator(".todo-panel")).toBeVisible();
-    await expectWindowSize(electronApp, 460, 710);
-    await page.getByPlaceholder("新建短期待办").fill("验证边缘停靠");
-    await page.locator(".todo-create-row").getByRole("button", { name: "添加" }).click();
-    await page.getByPlaceholder("新建短期待办").fill("检查本轮队列");
-    await page.locator(".todo-create-row").getByRole("button", { name: "添加" }).click();
-    await page.getByRole("button", { name: "完成选择" }).click();
-    await expect(page.locator(".widget")).toBeVisible();
+    await todoPage!.getByRole("button", { name: "收起待办窗口" }).click();
+    await expectWindowSize(electronApp, 392, 46, "todo");
+    await todoPage!.getByRole("button", { name: "展开待办窗口" }).click();
+    await expect(todoPage!.getByPlaceholder("新建短期待办")).toBeVisible();
+    await todoPage!.getByPlaceholder("新建短期待办").fill("验证边缘停靠");
+    await todoPage!.getByRole("button", { name: "添加" }).click();
+    await todoPage!.getByPlaceholder("新建短期待办").fill("检查本轮队列");
+    await todoPage!.getByRole("button", { name: "添加" }).click();
+    await expect(page.getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "开始专注", exact: true }).click();
     await expect(page.locator(".mini-widget")).toBeVisible();
     await expectWindowSize(electronApp, 300, 86);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes("window=todo"))?.isVisible())).toBe(false);
     await expect(page.locator(".mini-meta time")).toHaveText(/^\d{2}\/\d{2} · \d{2}:\d{2}$/);
 
     await page.locator(".mini-widget").dblclick();
     await expect(page.locator(".widget")).toBeVisible();
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes("window=todo"))?.isVisible())).toBe(true);
     await expect(page.locator(".session-queue")).toContainText("验证边缘停靠");
     await expect(page.locator(".session-queue")).toContainText("检查本轮队列");
     await page.getByRole("button", { name: "切换到检查本轮队列" }).click();
@@ -47,7 +71,7 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await page.getByRole("button", { name: "切换到验证边缘停靠" }).click();
 
     const expectedDockTop = await electronApp.evaluate(({ BrowserWindow, screen }) => {
-      const window = BrowserWindow.getAllWindows()[0];
+      const window = BrowserWindow.getAllWindows().find((candidate) => !candidate.webContents.getURL().includes("window=todo"))!;
       // Use the desktop's outermost left display. Moving across an internal
       // monitor seam is normal cross-screen movement and must not dock.
       const workArea = screen.getAllDisplays().reduce((leftmost, display) =>
@@ -64,11 +88,12 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await page.waitForTimeout(260);
     await expect(page.locator(".widget")).toBeVisible();
     await expectWindowSize(electronApp, 392, 270);
-    await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit("moved"));
+    await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => !window.webContents.getURL().includes("window=todo"))!.emit("moved"));
 
     await expect(page.locator(".edge-widget")).toBeVisible();
     await expectWindowSize(electronApp, 62, 62);
-    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds().y)).toBe(expectedDockTop);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes("window=todo"))?.isVisible())).toBe(false);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => !window.webContents.getURL().includes("window=todo"))!.getBounds().y)).toBe(expectedDockTop);
     await expect(page.locator(".edge-widget")).toHaveCSS("animation-duration", "0.24s");
 
     await page.mouse.move(500, 400);
@@ -76,7 +101,8 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await page.locator(".edge-widget").hover();
     await expect(page.locator(".widget")).toBeVisible();
     await expectWindowSize(electronApp, 392, 270);
-    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds().y)).toBe(expectedDockTop);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes("window=todo"))?.isVisible())).toBe(true);
+    await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => !window.webContents.getURL().includes("window=todo"))!.getBounds().y)).toBe(expectedDockTop);
 
     // A transient mouseleave during resize must not collapse a panel while
     // the real cursor is still inside it.
@@ -91,7 +117,7 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await page.locator(".edge-widget").hover();
     await page.waitForTimeout(220);
     await electronApp.evaluate(({ BrowserWindow, screen }) => {
-      const window = BrowserWindow.getAllWindows()[0];
+      const window = BrowserWindow.getAllWindows().find((candidate) => !candidate.webContents.getURL().includes("window=todo"))!;
       const workArea = screen.getDisplayMatching(window.getBounds()).workArea;
       window.setPosition(workArea.x + 240, workArea.y + 180);
     });
@@ -102,6 +128,10 @@ test("start collapses to mini and edge docking expands on hover", async () => {
 
     await page.getByRole("button", { name: "Punch", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("已 Punch · 验证边缘停靠");
+    await todoPage!.getByRole("button", { name: /已办/ }).click();
+    await expect(todoPage!.locator(".companion-list")).toContainText("验证边缘停靠");
+    await todoPage!.getByRole("button", { name: "恢复", exact: true }).click();
+    await expect(todoPage!.locator(".companion-list")).toContainText("验证边缘停靠");
     await expect.poll(() => page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("tomato-clock:todos:v1") || "{}");
       return state.punches?.length || 0;

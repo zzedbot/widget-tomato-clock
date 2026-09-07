@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addTodo, EMPTY_TODO_STATE, elapsedForLongTodo, elapsedForTodo, endTodoSession, punchTodo, startTodoSession, switchActiveTodo, switchLongTodo, toggleTodoSelection } from "./todos";
+import { addTodo, EMPTY_TODO_STATE, elapsedForLongTodo, elapsedForTodo, endTodoSession, punchTodo, reopenTodo, startTodoSession, switchActiveTodo, switchLongTodo, toggleTodoSelection, undoPunch } from "./todos";
 
 describe("todo focus ledger", () => {
   it("requires a selected todo before opening a session", () => {
@@ -56,5 +56,29 @@ describe("todo focus ledger", () => {
     state = punchTodo(state, "long", 120_000, "punch", "seg-b", true);
     expect(state.punches[0].elapsedMs).toBe(120_000);
     expect(state.todos.find((todo) => todo.id === "short")?.parentLongId).toBeNull();
+  });
+
+  it("undoes a punch and restores the previous queue and active attribution", () => {
+    let state = addTodo(EMPTY_TODO_STATE, "short", "短期", "a", 0);
+    state = startTodoSession(state, 0, "session", "seg-a");
+    state = punchTodo(state, "a", 60_000, "punch", "unused", true);
+    state = undoPunch(state, "punch", 61_000, "seg-restored", true);
+    expect(state.todos[0].status).toBe("open");
+    expect(state.selectedIds).toEqual(["a"]);
+    expect(state.activeTodoId).toBe("a");
+    expect(state.punches[0].undoneAt).toBe(61_000);
+    expect(state.segments.at(-1)?.todoId).toBe("a");
+  });
+
+  it("reopens a completed todo into a new cycle without losing history", () => {
+    let state = addTodo(EMPTY_TODO_STATE, "short", "短期", "a", 0);
+    state = startTodoSession(state, 0, "session", "seg-a");
+    state = punchTodo(state, "a", 60_000, "punch-1", "unused", true);
+    state = reopenTodo(state, "a", 100_000, "reopen", true, "seg-b", true);
+    state = punchTodo(state, "a", 160_000, "punch-2", "unused", true);
+    expect(state.punches).toHaveLength(2);
+    expect(state.punches[1].elapsedMs).toBe(60_000);
+    expect(state.punches[1].totalElapsedMs).toBe(120_000);
+    expect(state.reopens).toHaveLength(1);
   });
 });
