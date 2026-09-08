@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { addTodo, EMPTY_TODO_STATE, elapsedForLongTodo, elapsedForTodo, endTodoSession, punchTodo, reopenTodo, startTodoSession, switchActiveTodo, switchLongTodo, toggleTodoSelection, undoPunch } from "./todos";
+import { addTodo, canDeleteTodo, deleteTodo, EMPTY_TODO_STATE, elapsedForLongTodo, elapsedForTodo, endTodoSession, punchTodo, reopenTodo, startTodoSession, switchActiveTodo, switchLongTodo, toggleTodoSelection, undoPunch } from "./todos";
 
 describe("todo focus ledger", () => {
+  it("permanently deletes only todos without history and detaches their children", () => {
+    let state = addTodo(EMPTY_TODO_STATE, "long", "目标", "long", 0);
+    state = switchLongTodo(state, "long", 0, "unused", false);
+    state = addTodo(state, "short", "子项", "child", 1);
+    expect(state.todos[1].parentLongId).toBe("long");
+    expect(canDeleteTodo(state, "long")).toBe(true);
+    state = deleteTodo(state, "long");
+    expect(state.todos.map((todo) => todo.id)).toEqual(["child"]);
+    expect(state.todos[0].parentLongId).toBeNull();
+    expect(state.selectedIds).toEqual(["child"]);
+  });
+
+  it("protects todos that already have time history", () => {
+    let state = addTodo(EMPTY_TODO_STATE, "short", "有记录", "a", 0);
+    state = startTodoSession(state, 0, "session", "segment");
+    state = endTodoSession(state, 60_000);
+    expect(canDeleteTodo(state, "a")).toBe(false);
+    expect(deleteTodo(state, "a")).toBe(state);
+  });
+
   it("requires a selected todo before opening a session", () => {
     expect(startTodoSession(EMPTY_TODO_STATE, 0, "s", "g").sessionId).toBeNull();
   });

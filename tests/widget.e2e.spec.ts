@@ -50,6 +50,13 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await expectWindowSize(electronApp, 392, 46, "todo");
     await todoPage!.getByRole("button", { name: "展开待办窗口" }).click();
     await expect(todoPage!.getByPlaceholder("新建短期待办")).toBeVisible();
+    await todoPage!.getByPlaceholder("新建短期待办").fill("准备删除的待办");
+    await todoPage!.getByRole("button", { name: "添加" }).click();
+    const deleteConfirmation = todoPage!.waitForEvent("dialog");
+    const deleteClick = todoPage!.getByRole("button", { name: "删除准备删除的待办" }).click();
+    await (await deleteConfirmation).accept();
+    await deleteClick;
+    await expect(todoPage!.locator(".companion-list")).not.toContainText("准备删除的待办");
     await todoPage!.getByPlaceholder("新建短期待办").fill("验证边缘停靠");
     await todoPage!.getByRole("button", { name: "添加" }).click();
     await todoPage!.getByPlaceholder("新建短期待办").fill("检查本轮队列");

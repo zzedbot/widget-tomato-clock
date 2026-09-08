@@ -36,6 +36,31 @@ export function addTodo(state: TodoState, kind: TodoKind, title: string, id: str
   return { ...state, todos: [...state.todos, todo], selectedIds: [...state.selectedIds, id] };
 }
 
+export function canDeleteTodo(state: TodoState, todoId: string): boolean {
+  return state.todos.some((todo) => todo.id === todoId) &&
+    !state.segments.some((segment) => segment.todoId === todoId || segment.longTodoId === todoId) &&
+    !state.punches.some((record) => record.todoId === todoId) &&
+    !state.reopens.some((record) => record.todoId === todoId);
+}
+
+export function deleteTodo(state: TodoState, todoId: string): TodoState {
+  if (!state.todos.some((todo) => todo.id === todoId) || !canDeleteTodo(state, todoId)) return state;
+  const selectedIds = state.selectedIds.filter((id) => id !== todoId);
+  const activeCandidates = state.todos.filter((todo) => todo.id !== todoId && todo.status === "open" && selectedIds.includes(todo.id));
+  const activeTodoId = state.activeTodoId === todoId
+    ? activeCandidates.find((todo) => todo.kind === "short")?.id ?? activeCandidates[0]?.id ?? null
+    : state.activeTodoId;
+  return {
+    ...state,
+    todos: state.todos
+      .filter((todo) => todo.id !== todoId)
+      .map((todo) => todo.parentLongId === todoId ? { ...todo, parentLongId: null } : todo),
+    selectedIds,
+    activeTodoId,
+    activeLongId: state.activeLongId === todoId ? null : state.activeLongId
+  };
+}
+
 function closeOpenSegment(state: TodoState, now: number): TodoState {
   return { ...state, segments: state.segments.map((segment) => segment.endedAt === null ? { ...segment, endedAt: Math.max(segment.startedAt, now) } : segment) };
 }
