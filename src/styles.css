@@ -444,7 +444,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .companion-actions button.punch, .companion-actions button.restore { background: var(--peach); color: #8f3028; }
 .companion-actions button.restore-session { background: var(--tomato); color: white; }
 .companion-actions button.delete { width: 24px; justify-content: center; padding: 0; color: #a54b42; background: rgba(217,72,59,.08); }
-.companion-actions button.delete.protected { color: #a99791; background: rgba(128,101,92,.06); }
+.companion-actions button.delete.logical { color: #8b6f67; background: rgba(128,101,92,.08); }
 .companion-empty { flex: 1; display: grid; place-content: center; place-items: center; gap: 5px; color: var(--muted); text-align: center; }
 .companion-empty strong { color: var(--brown); font-size: 10px; }
 .companion-empty span { font-size: 8px; }

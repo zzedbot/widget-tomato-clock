@@ -139,10 +139,17 @@ test("start collapses to mini and edge docking expands on hover", async () => {
     await expect(todoPage!.locator(".companion-list")).toContainText("验证边缘停靠");
     await todoPage!.getByRole("button", { name: "恢复", exact: true }).click();
     await expect(todoPage!.locator(".companion-list")).toContainText("验证边缘停靠");
+    const logicalDeleteConfirmation = todoPage!.waitForEvent("dialog");
+    const logicalDeleteClick = todoPage!.getByRole("button", { name: "删除检查本轮队列" }).click();
+    await (await logicalDeleteConfirmation).accept();
+    await logicalDeleteClick;
+    await expect(todoPage!.locator(".companion-list")).not.toContainText("检查本轮队列");
+    await expect(page.getByText("检查本轮队列", { exact: true })).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("tomato-clock:todos:v1") || "{}");
-      return state.punches?.length || 0;
-    })).toBe(1);
+      const deleted = state.todos?.find((todo: { title: string }) => todo.title === "检查本轮队列");
+      return { punches: state.punches?.length || 0, logicallyDeleted: typeof deleted?.deletedAt === "number" };
+    })).toEqual({ punches: 1, logicallyDeleted: true });
   } finally {
     await electronApp.close();
     rmSync(userData, { recursive: true, force: true });

@@ -14,12 +14,27 @@ describe("todo focus ledger", () => {
     expect(state.selectedIds).toEqual(["child"]);
   });
 
-  it("protects todos that already have time history", () => {
+  it("logically deletes todos with history while retaining their ledger", () => {
     let state = addTodo(EMPTY_TODO_STATE, "short", "有记录", "a", 0);
     state = startTodoSession(state, 0, "session", "segment");
     state = endTodoSession(state, 60_000);
     expect(canDeleteTodo(state, "a")).toBe(false);
-    expect(deleteTodo(state, "a")).toBe(state);
+    state = deleteTodo(state, "a", 70_000);
+    expect(state.todos.find((todo) => todo.id === "a")?.deletedAt).toBe(70_000);
+    expect(state.segments).toHaveLength(1);
+    expect(elapsedForTodo(state, "a")).toBe(60_000);
+    expect(state.selectedIds).toEqual([]);
+  });
+
+  it("switches attribution when logically deleting the running todo", () => {
+    let state = addTodo(EMPTY_TODO_STATE, "short", "当前", "a", 0);
+    state = addTodo(state, "short", "下一项", "b", 0);
+    state = startTodoSession(state, 0, "session", "segment-a");
+    state = deleteTodo(state, "a", 60_000, "segment-b", true);
+    expect(state.todos.find((todo) => todo.id === "a")?.deletedAt).toBe(60_000);
+    expect(state.activeTodoId).toBe("b");
+    expect(state.segments[0].endedAt).toBe(60_000);
+    expect(state.segments.at(-1)?.todoId).toBe("b");
   });
 
   it("requires a selected todo before opening a session", () => {

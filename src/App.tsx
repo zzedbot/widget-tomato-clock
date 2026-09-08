@@ -586,25 +586,25 @@ function TodoCompanionApp() {
   const remove = (id: string) => {
     const target = todosRef.current.todos.find((todo) => todo.id === id);
     if (!target) return;
-    if (!canDeleteTodo(todosRef.current, id)) {
-      window.alert("该待办已有专注或完成记录，为保护历史账本，不能永久删除。");
-      return;
-    }
-    if (!window.confirm(`永久删除“${target.title}”？\n此操作无法撤销。`)) return;
-    persistTodos(deleteTodo(todosRef.current, id));
+    const permanent = canDeleteTodo(todosRef.current, id);
+    const message = permanent
+      ? `永久删除“${target.title}”？\n此操作无法撤销。`
+      : `删除“${target.title}”？\n该待办会从列表中隐藏，但专注时间、Punch 和恢复历史会继续保留。`;
+    if (!window.confirm(message)) return;
+    persistTodos(deleteTodo(todosRef.current, id, Date.now(), makeId("segment"), running));
     if (historyId === id) setHistoryId(null);
   };
 
-  const visible = todos.todos.filter((todo) => todo.status === tab && (filter === "all" || todo.kind === filter) && todo.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const visible = todos.todos.filter((todo) => !todo.deletedAt && todo.status === tab && (filter === "all" || todo.kind === filter) && todo.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const recentPunch = todos.punches.slice().reverse().find((record) => record.undoneAt === null && now - record.punchedAt <= 5_000 && !todos.reopens.some((reopen) => reopen.todoId === record.todoId && reopen.reopenedAt > record.punchedAt));
-  const historyTodo = todos.todos.find((todo) => todo.id === historyId) || null;
+  const historyTodo = todos.todos.find((todo) => todo.id === historyId && !todo.deletedAt) || null;
 
   return <main className={`todo-companion ${collapsed ? "collapsed" : ""}`}>
     <header className="todo-companion-header drag-region">
       <div><ListTodo size={15} /><strong>完整待办</strong></div>
       <div className="no-drag"><button className={following ? "following" : ""} onClick={() => void window.tomatoDesktop?.setTodoFollowing(!following)}>{following ? <Link size={12} /> : <Link2Off size={12} />}{following ? "已跟随" : "已分离"}</button><button aria-label={collapsed ? "展开待办窗口" : "收起待办窗口"} onClick={() => void window.tomatoDesktop?.toggleTodoCollapsed()}>{collapsed ? <Plus size={14} /> : <Minus size={14} />}</button><button aria-label="隐藏待办窗口" onClick={() => void window.tomatoDesktop?.hideTodoWindow()}><EyeOff size={14} /></button></div>
     </header>
-    <nav className="todo-tabs no-drag"><button className={tab === "open" ? "active" : ""} onClick={() => setTab("open")}>待办 <span>{todos.todos.filter((todo) => todo.status === "open").length}</span></button><button className={tab === "completed" ? "active" : ""} onClick={() => setTab("completed")}>已办 <span>{todos.todos.filter((todo) => todo.status === "completed").length}</span></button></nav>
+    <nav className="todo-tabs no-drag"><button className={tab === "open" ? "active" : ""} onClick={() => setTab("open")}>待办 <span>{todos.todos.filter((todo) => todo.status === "open" && !todo.deletedAt).length}</span></button><button className={tab === "completed" ? "active" : ""} onClick={() => setTab("completed")}>已办 <span>{todos.todos.filter((todo) => todo.status === "completed" && !todo.deletedAt).length}</span></button></nav>
     {recentPunch && <div className="punch-undo no-drag" role="status"><Check size={14} /><span>已 Punch · {todos.todos.find((todo) => todo.id === recentPunch.todoId)?.title} · {formatElapsed(recentPunch.elapsedMs)}</span><button onClick={() => persistTodos(undoPunch(todosRef.current, recentPunch.id, Date.now(), makeId("segment"), running))}><Undo2 size={12} />撤销</button></div>}
     <div className="todo-toolbar no-drag"><label><Search size={13} /><input aria-label={`搜索${tab === "open" ? "待办" : "已办"}`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索${tab === "open" ? "待办" : "已办"}`} /></label><div>{(["all", "long", "short"] as const).map((value) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "全部" : value === "long" ? "长期" : "短期"}</button>)}</div></div>
     {tab === "open" && <>
@@ -619,7 +619,7 @@ function TodoCompanionApp() {
         return <article key={todo.id} className={`${selected ? "selected" : ""} ${active ? "active" : ""}`}>
           <button className="companion-check" aria-pressed={selected} disabled={tab === "completed" || running && active} onClick={() => mutateAttribution((state, at, segment, tracking) => toggleTodoSelection(state, todo.id, at, segment, tracking))}>{tab === "completed" || selected ? <Check size={12} /> : null}</button>
           <div className="companion-copy"><strong>{todo.title}</strong><span>{todo.kind === "long" ? "长期" : "短期"} · {tab === "completed" && lastPunch ? `${new Date(lastPunch.punchedAt).toLocaleDateString("zh-CN")} Punch · 本次 ${formatElapsed(lastPunch.elapsedMs)} · ` : ""}总计 {formatElapsed(elapsed)}{completionCount(todos, todo.id) ? ` · 完成 ${completionCount(todos, todo.id)} 次` : ""}</span></div>
-          <div className="companion-actions">{tab === "open" ? <>{todo.kind === "long" ? <button onClick={() => mutateAttribution((state, at, segment, tracking) => switchLongTodo(state, todo.id, at, segment, tracking))}>{todos.activeLongId === todo.id ? "当前目标" : "设为目标"}</button> : selected && <button onClick={() => mutateAttribution((state, at, segment, tracking) => switchActiveTodo(state, todo.id, at, segment, tracking))}>{active ? "执行中" : "执行"}</button>}<button className="punch" onClick={() => punch(todo.id)}>Punch</button><button className="delete" aria-label={`删除${todo.title}`} title={canDeleteTodo(todos, todo.id) ? "永久删除" : "已有历史记录，不能永久删除"} onClick={() => remove(todo.id)}><Trash2 size={11} /></button></> : <><button onClick={() => setHistoryId(todo.id)}><History size={11} />记录</button><button className="restore" onClick={() => restore(todo.id, false)}>恢复</button>{running && <button className="restore-session" onClick={() => restore(todo.id, true)}>加入本轮</button>}<button className="delete protected" aria-label={`删除${todo.title}`} title="已有历史记录，不能永久删除" onClick={() => remove(todo.id)}><Trash2 size={11} /></button></>}</div>
+          <div className="companion-actions">{tab === "open" ? <>{todo.kind === "long" ? <button onClick={() => mutateAttribution((state, at, segment, tracking) => switchLongTodo(state, todo.id, at, segment, tracking))}>{todos.activeLongId === todo.id ? "当前目标" : "设为目标"}</button> : selected && <button onClick={() => mutateAttribution((state, at, segment, tracking) => switchActiveTodo(state, todo.id, at, segment, tracking))}>{active ? "执行中" : "执行"}</button>}<button className="punch" onClick={() => punch(todo.id)}>Punch</button><button className={`delete ${canDeleteTodo(todos, todo.id) ? "" : "logical"}`} aria-label={`删除${todo.title}`} title={canDeleteTodo(todos, todo.id) ? "永久删除" : "删除并保留历史记录"} onClick={() => remove(todo.id)}><Trash2 size={11} /></button></> : <><button onClick={() => setHistoryId(todo.id)}><History size={11} />记录</button><button className="restore" onClick={() => restore(todo.id, false)}>恢复</button>{running && <button className="restore-session" onClick={() => restore(todo.id, true)}>加入本轮</button>}<button className="delete logical" aria-label={`删除${todo.title}`} title="删除并保留历史记录" onClick={() => remove(todo.id)}><Trash2 size={11} /></button></>}</div>
         </article>;
       })}
       {visible.length === 0 && <div className="companion-empty"><ListTodo size={25} /><strong>{tab === "open" ? "没有符合条件的待办" : "Punch 完成的任务会保留在这里"}</strong><span>{tab === "open" ? "创建一项或调整筛选条件" : "已办不是删除，之后可以恢复为待办"}</span></div>}

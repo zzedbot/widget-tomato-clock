@@ -7,11 +7,11 @@ export const EMPTY_TODO_STATE: TodoState = {
 
 export function normalizeTodoState(value?: Partial<TodoState>): TodoState {
   const state = { ...EMPTY_TODO_STATE, ...value };
-  const openIds = new Set(state.todos.filter((todo) => todo.status === "open").map((todo) => todo.id));
+  const openIds = new Set(state.todos.filter((todo) => todo.status === "open" && !todo.deletedAt).map((todo) => todo.id));
   const selectedIds = state.selectedIds.filter((id) => openIds.has(id));
   return {
     ...state,
-    todos: state.todos.map((todo) => ({ ...todo, cycleStartedAt: todo.cycleStartedAt ?? todo.createdAt })),
+    todos: state.todos.map((todo) => ({ ...todo, cycleStartedAt: todo.cycleStartedAt ?? todo.createdAt, deletedAt: todo.deletedAt ?? null })),
     selectedIds,
     activeTodoId: state.activeTodoId && openIds.has(state.activeTodoId) ? state.activeTodoId : null,
     activeLongId: state.activeLongId && openIds.has(state.activeLongId) ? state.activeLongId : null,
@@ -32,7 +32,7 @@ export function normalizeTodoState(value?: Partial<TodoState>): TodoState {
 export function addTodo(state: TodoState, kind: TodoKind, title: string, id: string, now = Date.now()): TodoState {
   const clean = title.trim();
   if (!clean) return state;
-  const todo: Todo = { id, kind, title: clean, status: "open", parentLongId: kind === "short" ? state.activeLongId : null, createdAt: now, completedAt: null, cycleStartedAt: now };
+  const todo: Todo = { id, kind, title: clean, status: "open", parentLongId: kind === "short" ? state.activeLongId : null, createdAt: now, completedAt: null, cycleStartedAt: now, deletedAt: null };
   return { ...state, todos: [...state.todos, todo], selectedIds: [...state.selectedIds, id] };
 }
 
@@ -43,22 +43,28 @@ export function canDeleteTodo(state: TodoState, todoId: string): boolean {
     !state.reopens.some((record) => record.todoId === todoId);
 }
 
-export function deleteTodo(state: TodoState, todoId: string): TodoState {
-  if (!state.todos.some((todo) => todo.id === todoId) || !canDeleteTodo(state, todoId)) return state;
-  const selectedIds = state.selectedIds.filter((id) => id !== todoId);
-  const activeCandidates = state.todos.filter((todo) => todo.id !== todoId && todo.status === "open" && selectedIds.includes(todo.id));
-  const activeTodoId = state.activeTodoId === todoId
-    ? activeCandidates.find((todo) => todo.kind === "short")?.id ?? activeCandidates[0]?.id ?? null
-    : state.activeTodoId;
-  return {
-    ...state,
-    todos: state.todos
-      .filter((todo) => todo.id !== todoId)
-      .map((todo) => todo.parentLongId === todoId ? { ...todo, parentLongId: null } : todo),
+export function deleteTodo(state: TodoState, todoId: string, now = Date.now(), nextSegmentId = "", tracking = false): TodoState {
+  const target = state.todos.find((todo) => todo.id === todoId && !todo.deletedAt);
+  if (!target) return state;
+  const permanent = canDeleteTodo(state, todoId);
+  const affectsAttribution = state.activeTodoId === todoId || state.activeLongId === todoId;
+  const base = tracking && affectsAttribution ? closeOpenSegment(state, now) : state;
+  const selectedIds = base.selectedIds.filter((id) => id !== todoId);
+  let next: TodoState = {
+    ...base,
+    todos: base.todos
+      .filter((todo) => !permanent || todo.id !== todoId)
+      .map((todo) => {
+        if (todo.id === todoId) return { ...todo, deletedAt: now };
+        return todo.parentLongId === todoId ? { ...todo, parentLongId: null } : todo;
+      }),
     selectedIds,
-    activeTodoId,
-    activeLongId: state.activeLongId === todoId ? null : state.activeLongId
+    activeTodoId: base.activeTodoId === todoId ? null : base.activeTodoId,
+    activeLongId: base.activeLongId === todoId ? null : base.activeLongId
   };
+  if (!next.activeTodoId) next = { ...next, activeTodoId: chooseActive(next) };
+  if (tracking && affectsAttribution && next.activeTodoId) next = openSegment(next, now, nextSegmentId);
+  return next;
 }
 
 function closeOpenSegment(state: TodoState, now: number): TodoState {
@@ -66,7 +72,7 @@ function closeOpenSegment(state: TodoState, now: number): TodoState {
 }
 
 function chooseActive(state: TodoState): string | null {
-  const selected = state.todos.filter((todo) => state.selectedIds.includes(todo.id) && todo.status === "open");
+  const selected = state.todos.filter((todo) => state.selectedIds.includes(todo.id) && todo.status === "open" && !todo.deletedAt);
   return selected.find((todo) => todo.kind === "short")?.id || selected[0]?.id || null;
 }
 
@@ -77,6 +83,7 @@ function openSegment(state: TodoState, now: number, segmentId: string): TodoStat
 }
 
 export function toggleTodoSelection(state: TodoState, todoId: string, now = Date.now(), segmentId = "", tracking = false): TodoState {
+  if (!state.todos.some((todo) => todo.id === todoId && todo.status === "open" && !todo.deletedAt)) return state;
   const selected = state.selectedIds.includes(todoId);
   const attributionChanged = selected && (state.activeTodoId === todoId || state.activeLongId === todoId);
   const base = tracking && attributionChanged ? closeOpenSegment(state, now) : state;
@@ -111,6 +118,7 @@ export function switchActiveTodo(state: TodoState, todoId: string, now: number, 
   if (!state.selectedIds.includes(todoId)) return state;
   if (state.activeTodoId === todoId) return state;
   const todo = state.todos.find((item) => item.id === todoId);
+  if (!todo || todo.status !== "open" || todo.deletedAt) return state;
   let next: TodoState = {
     ...closeOpenSegment(state, now),
     activeTodoId: todoId,
@@ -122,7 +130,7 @@ export function switchActiveTodo(state: TodoState, todoId: string, now: number, 
 
 export function switchLongTodo(state: TodoState, todoId: string, now: number, segmentId: string, tracking: boolean): TodoState {
   const todo = state.todos.find((item) => item.id === todoId);
-  if (!todo || todo.kind !== "long" || todo.status !== "open") return state;
+  if (!todo || todo.kind !== "long" || todo.status !== "open" || todo.deletedAt) return state;
   const selectedIds = state.selectedIds.includes(todoId) ? state.selectedIds : [...state.selectedIds, todoId];
   const active = state.todos.find((item) => item.id === state.activeTodoId);
   const activeTodoId = active?.kind === "long" ? todoId : state.activeTodoId;
@@ -148,7 +156,7 @@ function elapsedForCycle(state: TodoState, todo: Todo, now: number): number {
 }
 
 export function punchTodo(state: TodoState, todoId: string, now: number, punchId: string, nextSegmentId: string, tracking: boolean): TodoState {
-  const punchedTodo = state.todos.find((todo) => todo.id === todoId && todo.status === "open");
+  const punchedTodo = state.todos.find((todo) => todo.id === todoId && todo.status === "open" && !todo.deletedAt);
   if (!punchedTodo) return state;
   const affectsAttribution = state.activeTodoId === todoId || state.activeLongId === todoId;
   let next = tracking && affectsAttribution ? closeOpenSegment(state, now) : state;
@@ -198,7 +206,7 @@ export function undoPunch(state: TodoState, punchId: string, now: number, segmen
 }
 
 export function reopenTodo(state: TodoState, todoId: string, now: number, reopenId: string, joinSession: boolean, segmentId: string, tracking: boolean): TodoState {
-  const todo = state.todos.find((item) => item.id === todoId && item.status === "completed");
+  const todo = state.todos.find((item) => item.id === todoId && item.status === "completed" && !item.deletedAt);
   if (!todo) return state;
   const selectedIds = joinSession && !state.selectedIds.includes(todoId) ? [...state.selectedIds, todoId] : state.selectedIds;
   const shouldActivate = joinSession && !state.activeTodoId;

@@ -14,6 +14,7 @@ export interface Todo {
   createdAt: number;
   completedAt: number | null;
   cycleStartedAt: number;
+  deletedAt: number | null;
 }
 
 export interface TimeSegment {
